@@ -1,0 +1,35 @@
+﻿# Dependências
+node_modules/
+.npm/
+.pnp/
+.pnp.js
+
+# Build output
+.next/
+out/
+dist/
+build/
+*.log
+
+# Banco local e caches
+*.sqlite
+*.db
+prisma/dev.db
+.env
+.env.local
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# LFS e backups
+*.zip
+*.tar
+*.gz
+*.7z
+
+# Configurações temporárias
+.vscode/
+.idea/
+*.swp
+*.swo

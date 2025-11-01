@@ -1,0 +1,132 @@
+// ======================================================
+// =============== CONFIGURAÇÃO BASE =====================
+// ======================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ======================================================
+// =============== MODELOS PRINCIPAIS ===================
+// ======================================================
+
+model User {
+  id         String    @id @default(cuid())
+  name       String?
+  email      String    @unique
+  password   String?
+  role       Role      @default(USER)
+  avatarUrl  String?
+  city       String?
+  bio        String?
+  createdAt  DateTime  @default(now())
+  pets       Pet[]
+  posts      Post[]
+  comments   Comment[]      // 🩵 Adicionado para suportar comentários
+  accounts   Account[]
+  sessions   Session[]
+}
+
+model Pet {
+  id          String   @id @default(cuid())
+  name        String
+  species     String?
+  slug        String   @unique
+  breed       String?
+  age         Int?                 // ✅ Campo de idade
+  bio         String?
+  description String?              // ✅ Adicionado para resolver erro do campo inexistente
+  avatarUrl   String?
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  posts       Post[]
+  createdAt   DateTime @default(now())
+}
+
+model Post {
+  id         String   @id @default(cuid())
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  petId      String?
+  pet        Pet?     @relation(fields: [petId], references: [id])
+  content    String
+  imageUrl   String?
+  likes      Int      @default(0)
+  createdAt  DateTime @default(now())
+  comments   Comment[]
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model Sponsor {
+  id         String   @id @default(cuid())
+  name       String
+  imageUrl   String?
+  website    String?
+  createdAt  DateTime @default(now())
+  campaigns  Campaign[]
+}
+
+model Campaign {
+  id         String   @id @default(cuid())
+  sponsorId  String
+  sponsor    Sponsor  @relation(fields: [sponsorId], references: [id])
+  title      String
+  content    String
+  imageUrl   String?
+  budget     Float    @default(0)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+}
+
+// ======================================================
+// =============== NEXTAUTH (OPCIONAL) ==================
+// ======================================================
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  user               User    @relation(fields: [userId], references: [id])
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  createdAt          DateTime @default(now())
+}
+
+model Session {
+  id           String  @id @default(cuid())
+  sessionToken String  @unique
+  userId       String
+  user         User    @relation(fields: [userId], references: [id])
+  expires      DateTime
+  createdAt    DateTime @default(now())
+}
+
+// ======================================================
+// =============== ENUMS =================================
+// ======================================================
+
+enum Role {
+  USER
+  ADMIN
+}
