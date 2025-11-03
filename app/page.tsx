@@ -10,24 +10,17 @@ export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
+  // 🧠 Todos os hooks ficam antes de qualquer return
+  const [tutor, setTutor] = useState<any>(null);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
   // 🔒 Redireciona se não estiver logado
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
     }
   }, [status, router]);
-
-  if (status === "loading") {
-    return (
-      <div className="text-center text-gray-400 mt-10">
-        Verificando login...
-      </div>
-    );
-  }
-
-  const [tutor, setTutor] = useState<any>(null);
-  const [posts, setPosts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // 🧍 Carrega tutor salvo (ou sessão do NextAuth)
   useEffect(() => {
@@ -97,7 +90,6 @@ export default function Home() {
 
     setPosts((prev) => [newPost, ...prev]);
 
-    // Enviar para API se estiver online
     if (navigator.onLine) {
       try {
         await fetch("/api/posts", {
@@ -110,6 +102,15 @@ export default function Home() {
       }
     }
   };
+
+  // 🚀 Retorno visual (depois dos hooks)
+  if (status === "loading") {
+    return (
+      <div className="text-center text-gray-400 mt-10">
+        Verificando login...
+      </div>
+    );
+  }
 
   return (
     <section className="flex flex-col gap-5 mt-6">

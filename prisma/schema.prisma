@@ -25,39 +25,52 @@ model User {
   city       String?
   bio        String?
   createdAt  DateTime  @default(now())
-  pets       Pet[]
+
+  // 🐾 Um usuário pode ter APENAS um pet
+  pet        Pet?       @relation("UserPet")
+
   posts      Post[]
-  comments   Comment[]      // 🩵 Adicionado para suportar comentários
+  comments   Comment[]      
   accounts   Account[]
   sessions   Session[]
 }
 
+// Cada tutor pode ter apenas 1 pet
 model Pet {
   id          String   @id @default(cuid())
   name        String
   species     String?
   slug        String   @unique
   breed       String?
-  age         Int?                 // ✅ Campo de idade
+  age         Int?
   bio         String?
-  description String?              // ✅ Adicionado para resolver erro do campo inexistente
+  description String?
   avatarUrl   String?
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
+
+  // 🔗 Dono do pet
+  ownerId     String?   @unique       // garante 1:1
+  owner       User?     @relation("UserPet", fields: [ownerId], references: [id])
+
+  // 📧 Email usado para vincular antes do login
+  ownerEmail  String?   @unique       // garante que cada email só tenha um pet
+
   posts       Post[]
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 }
 
 model Post {
   id         String   @id @default(cuid())
   authorId   String
   author     User     @relation(fields: [authorId], references: [id])
+
   petId      String?
   pet        Pet?     @relation(fields: [petId], references: [id])
+
   content    String
   imageUrl   String?
   likes      Int      @default(0)
   createdAt  DateTime @default(now())
+
   comments   Comment[]
 }
 

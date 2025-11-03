@@ -1,36 +1,53 @@
-// app/api/posts/route.ts
 import { NextResponse } from "next/server";
-
-let posts: any[] = [
-  {
-    id: "1",
-    author: "Douglas 🐕",
-    avatar: "/avatar-sample.jpg",
-    content: "Bem-vindos ao Mundo Pets 🐾",
-    image: "/dog1.jpg",
-    createdAt: "há 2h",
-    likes: 120,
-    comments: 14,
-  },
-  {
-    id: "2",
-    author: "Sandra Bullock 🐈",
-    avatar: "/avatar-sample1.jpg",
-    content: "Meu gato aceitou o novo brinquedo 😻",
-    image: "/cat1.jpg",
-    createdAt: "há 1h",
-    likes: 64,
-    comments: 6,
-  },
-];
+import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function GET() {
-  return NextResponse.json(posts);
+  try {
+    const posts = await prisma.post.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { pet: true },
+    });
+    return NextResponse.json({ success: true, posts });
+  } catch (err: any) {
+    console.error("❌ Erro ao buscar posts:", err);
+    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
-  const body = await req.json();
-  const newPost = { id: Date.now().toString(), createdAt: "agora mesmo", likes: 0, comments: 0, ...body };
-  posts.unshift(newPost);
-  return NextResponse.json({ success: true, data: newPost });
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email)
+      return NextResponse.json({ success: false, message: "Não autenticado." }, { status: 401 });
+
+    const formData = await req.formData();
+    const content = formData.get("content") as string;
+    const file = formData.get("photo") as File | null;
+
+    const pet = await prisma.pet.findFirst({
+      where: { ownerEmail: session.user.email },
+    });
+
+    if (!pet)
+      return NextResponse.json({ success: false, message: "Pet não encontrado." }, { status: 404 });
+
+    let photoUrl = null;
+    if (file) {
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      photoUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
+    }
+
+    const post = await prisma.post.create({
+      data: { content, photoUrl, petId: pet.id },
+      include: { pet: true },
+    });
+
+    return NextResponse.json({ success: true, post });
+  } catch (err: any) {
+    console.error("❌ Erro ao criar post:", err);
+    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+  }
 }

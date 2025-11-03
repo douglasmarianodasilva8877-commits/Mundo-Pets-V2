@@ -1,0 +1,20 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET() {
+  const pets = await prisma.pet.findMany({ where: { ownerId: null, ownerEmail: { not: null } } });
+
+  let updated = 0;
+  for (const pet of pets) {
+    const user = await prisma.user.findUnique({ where: { email: pet.ownerEmail! } });
+    if (user) {
+      await prisma.pet.update({
+        where: { id: pet.id },
+        data: { ownerId: user.id },
+      });
+      updated++;
+    }
+  }
+
+  return NextResponse.json({ success: true, updated });
+}
