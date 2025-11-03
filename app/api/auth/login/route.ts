@@ -24,15 +24,13 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({
-      success: true,
-      message: "Login realizado com sucesso!",
-      user,
-    });
-  } catch (error: any) {
-    console.error("❌ Erro no login:", error);
-    return NextResponse.json(
-      { success: false, message: error.message },
-      { status: 500 }
-    );
-  }
-}
+  success: true,
+  message: "Login realizado com sucesso!",
+  user: {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role
+  },
+});
+

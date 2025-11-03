@@ -15,7 +15,8 @@ export async function POST(req: Request) {
     const file = formData.get("photo") as File | null;
 
     // ===== Upload da imagem =====
-    let avatarUrl: string | null = null;
+    let avatarUrl: string | undefined;
+
     if (file) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
