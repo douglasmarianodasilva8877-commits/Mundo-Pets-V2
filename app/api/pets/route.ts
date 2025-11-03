@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     }
 
     // Gera a imagem (caso exista)
-    let photoUrl = null;
+    let photoUrl: string | null = null;
     if (file) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);

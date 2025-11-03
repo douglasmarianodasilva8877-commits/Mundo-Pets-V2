@@ -7,7 +7,7 @@ export async function GET() {
   try {
     const posts = await prisma.post.findMany({
       orderBy: { createdAt: "desc" },
-      include: { pet: true },
+      include: { pet: true, author: true },
     });
     return NextResponse.json({ success: true, posts });
   } catch (err: any) {
@@ -22,6 +22,13 @@ export async function POST(req: Request) {
     if (!session?.user?.email)
       return NextResponse.json({ success: false, message: "Não autenticado." }, { status: 401 });
 
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!user)
+      return NextResponse.json({ success: false, message: "Usuário não encontrado." }, { status: 404 });
+
     const formData = await req.formData();
     const content = formData.get("content") as string;
     const file = formData.get("photo") as File | null;
@@ -33,16 +40,22 @@ export async function POST(req: Request) {
     if (!pet)
       return NextResponse.json({ success: false, message: "Pet não encontrado." }, { status: 404 });
 
-    let photoUrl = null;
+    let imageUrl: string | null = null;
     if (file) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      photoUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
+      imageUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
     }
 
+    // ✅ Incluímos authorId (obrigatório)
     const post = await prisma.post.create({
-      data: { content, photoUrl, petId: pet.id },
-      include: { pet: true },
+      data: {
+        content,
+        imageUrl,
+        petId: pet.id,
+        authorId: user.id,
+      },
+      include: { pet: true, author: true },
     });
 
     return NextResponse.json({ success: true, post });

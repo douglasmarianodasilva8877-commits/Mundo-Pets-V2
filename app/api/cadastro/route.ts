@@ -15,11 +15,12 @@ export async function POST(req: Request) {
     const file = formData.get("photo") as File | null;
 
     // ====== Upload da imagem ======
-    let avatarUrl = null;
+    let avatarUrl: string | null = null;
+    
     if (file) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      avatarUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
+      avatarUrl = `data:${file.type};base64,${buffer.toString("base64")}` as string;
     }
 
     // ====== Verifica se o tutor já existe ======

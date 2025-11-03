@@ -1,24 +1,42 @@
-import NextAuth from "next-auth/next";
+import NextAuth, { type NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import EmailProvider from "next-auth/providers/email";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./prisma";
-import { NextApiHandler } from "next";
 
-const handler: NextApiHandler = (req, res) => NextAuth(req, res, {
+// ======================================================
+// 🔐 CONFIGURAÇÃO COMPLETA DO NEXTAUTH
+// ======================================================
+
+export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || ''
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
-    EmailProvider({
-      server: process.env.EMAIL_SERVER || '',
-      from: process.env.EMAIL_FROM || ''
-    })
-  ],
-  adapter: PrismaAdapter(prisma),
-  secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: 'database' }
-});
 
-export default handler;
+    EmailProvider({
+      server: process.env.EMAIL_SERVER || "",
+      from: process.env.EMAIL_FROM || "",
+    }),
+  ],
+
+  adapter: PrismaAdapter(prisma),
+
+  secret: process.env.NEXTAUTH_SECRET,
+
+  session: {
+    strategy: "database",
+  },
+
+  pages: {
+    signIn: "/login",
+  },
+};
+
+// ======================================================
+// 🚀 HANDLERS PADRÕES PARA O APP ROUTER (GET/POST)
+// ======================================================
+
+const handler = NextAuth(authOptions);
+export { handler as GET, handler as POST };
