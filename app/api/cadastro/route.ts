@@ -14,16 +14,15 @@ export async function POST(req: Request) {
     const bio = formData.get("bio") as string;
     const file = formData.get("photo") as File | null;
 
-    // ====== Upload da imagem ======
+    // ===== Upload da imagem =====
     let avatarUrl: string | null = null;
-    
     if (file) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      avatarUrl = `data:${file.type};base64,${buffer.toString("base64")}` as string;
+      avatarUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
     }
 
-    // ====== Verifica se o tutor já existe ======
+    // ===== Verifica se o tutor já existe =====
     let user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
@@ -38,7 +37,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // ====== Verifica se já existe pet para este tutor ======
+    // ===== Verifica se já existe pet para este tutor =====
     const existingPet = await prisma.pet.findUnique({
       where: { ownerEmail: email },
     });
@@ -50,8 +49,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // ====== Cria o pet vinculado ======
-    const slug = petName.toLowerCase().replace(/\s+/g, "-").replace(/[^\w-]+/g, "");
+    // ===== Cria o pet vinculado =====
+    const slug = petName
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^\w-]+/g, "");
 
     const pet = await prisma.pet.create({
       data: {
@@ -65,9 +67,23 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ success: true, user, pet });
+    return NextResponse.json(
+      { success: true, message: "Cadastro concluído!", user, pet },
+      { status: 201 }
+    );
   } catch (err: any) {
     console.error("❌ Erro no cadastro:", err);
-    return NextResponse.json({ success: false, message: err.message }, { status: 500 });
+
+    if (err.code === "P2002") {
+      return NextResponse.json(
+        { success: false, message: "E-mail já cadastrado ou pet duplicado." },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: false, message: err.message || "Erro interno no servidor." },
+      { status: 500 }
+    );
   }
 }
