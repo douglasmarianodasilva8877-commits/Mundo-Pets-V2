@@ -14,15 +14,16 @@ const handler = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // 🔍 Verifica se o usuário já existe
+        // 🔍 Busca o usuário
         let user = await prisma.user.findUnique({
           where: { email: credentials.email },
           include: { pet: true },
         });
 
-        // 🆕 Se não existir, cria novo tutor + pet
+        // 🆕 Se não existir, cria automaticamente o usuário e o pet
         if (!user) {
           const hashedPassword = await bcrypt.hash(credentials.password, 10);
+
           user = await prisma.user.create({
             data: {
               email: credentials.email,
@@ -31,32 +32,21 @@ const handler = NextAuth({
               role: "USER",
               pet: {
                 create: {
-                  name: "Pet do Tutor",
+                  name: "Meu Pet",
                   slug: `pet-${Date.now()}`,
-                  species: "Cachorro",
-                  description: "Novo pet criado automaticamente",
+                  species: "Desconhecido",
                 },
               },
             },
             include: { pet: true },
           });
+
+          console.log("✅ Novo usuário criado:", user.email);
         } else {
-          // 🔒 Verifica senha
+          // 🔒 Se existir, valida a senha
           if (!user.password) return null;
           const isValid = await bcrypt.compare(credentials.password, user.password);
           if (!isValid) return null;
-
-          // 🐾 Se o usuário existe mas ainda não tem pet → cria agora
-          if (!user.pet) {
-            await prisma.pet.create({
-              data: {
-                name: "Pet do Tutor",
-                slug: `pet-${Date.now()}`,
-                species: "Cachorro",
-                ownerId: user.id,
-              },
-            });
-          }
         }
 
         return {
@@ -79,7 +69,10 @@ const handler = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      if (token?.id) session.user.id = token.id;
+      if (token?.id) {
+        // garante que seja string para evitar erro de tipo
+        session.user.id = String(token.id);
+      }
       return session;
     },
   },
