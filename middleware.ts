@@ -35,7 +35,7 @@ export async function middleware(req: NextRequest) {
   if (!userId) return NextResponse.next();
 
   const pet = await prisma.pet.findFirst({
-    where: { tutorId: userId },
+  where: { ownerId: userId },
   });
 
   // 🐾 Se não tem pet e tenta acessar feed → redireciona para criar pet
