@@ -14,12 +14,13 @@ const handler = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // 🔍 Verifica se o usuário existe
+        // 🔍 Verifica se o usuário já existe
         let user = await prisma.user.findUnique({
           where: { email: credentials.email },
+          include: { pet: true },
         });
 
-        // 🆕 Cria automaticamente se não existir
+        // 🆕 Se não existir, cria novo tutor + pet
         if (!user) {
           const hashedPassword = await bcrypt.hash(credentials.password, 10);
           user = await prisma.user.create({
@@ -28,18 +29,34 @@ const handler = NextAuth({
               password: hashedPassword,
               name: "Novo Tutor",
               role: "USER",
+              pet: {
+                create: {
+                  name: "Pet do Tutor",
+                  slug: `pet-${Date.now()}`,
+                  species: "Cachorro",
+                  description: "Novo pet criado automaticamente",
+                },
+              },
             },
+            include: { pet: true },
           });
         } else {
-          // 🔒 Valida senha existente
+          // 🔒 Verifica senha
           if (!user.password) return null;
-
-          const isValid = await bcrypt.compare(
-            credentials.password,
-            user.password
-          );
-
+          const isValid = await bcrypt.compare(credentials.password, user.password);
           if (!isValid) return null;
+
+          // 🐾 Se o usuário existe mas ainda não tem pet → cria agora
+          if (!user.pet) {
+            await prisma.pet.create({
+              data: {
+                name: "Pet do Tutor",
+                slug: `pet-${Date.now()}`,
+                species: "Cachorro",
+                ownerId: user.id,
+              },
+            });
+          }
         }
 
         return {
@@ -51,24 +68,18 @@ const handler = NextAuth({
       },
     }),
   ],
-
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/login",
   },
-
   callbacks: {
     async jwt({ token, user }) {
-      // 🔹 Converte o ID para string (corrige erro de tipo)
-      if (user) token.id = user.id?.toString();
+      if (user) token.id = user.id;
       return token;
     },
     async session({ session, token }) {
-      // 🔹 Garante que session.user exista e id seja string
-      if (token?.id && session.user) {
-        session.user.id = token.id as string;
-      }
+      if (token?.id) session.user.id = token.id;
       return session;
     },
   },
