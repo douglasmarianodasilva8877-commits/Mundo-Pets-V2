@@ -1,13 +1,12 @@
-// middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { prisma } from "@/lib/prisma";
 
 export async function middleware(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const { pathname } = req.nextUrl;
 
-  // ✅ Libera acesso total a rotas e arquivos públicos
+  // 🔓 Acesso liberado a rotas públicas
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
@@ -17,31 +16,43 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/logo") ||
     pathname.startsWith("/avatars") ||
     pathname.startsWith("/anuncio") ||
-    pathname.startsWith("/pet") || // 🔓 Perfil público
-    pathname.startsWith("/feed") || // 🔓 Feed público
     pathname.match(/\.(png|jpg|jpeg|svg|gif|webp)$/)
   ) {
     return NextResponse.next();
   }
 
-  // 🚫 Bloqueia acesso a rotas privadas se não houver token
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+
+  // 🚫 Se não estiver logado → login
   if (!token) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // ✅ Usuário autenticado segue normalmente
+  // 🔍 Verifica se o tutor já tem pet cadastrado
+  const userId = token.id;
+  if (!userId) return NextResponse.next();
+
+  const pet = await prisma.pet.findFirst({
+    where: { tutorId: userId },
+  });
+
+  // 🐾 Se não tem pet e tenta acessar feed → redireciona para criar pet
+  if (!pet && pathname.startsWith("/feed")) {
+    const redirectUrl = new URL("/pet/create", req.url);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  // 🏡 Se tem pet e tenta acessar login → vai pro feed
+  if (pet && pathname.startsWith("/login")) {
+    const redirectUrl = new URL("/feed", req.url);
+    return NextResponse.redirect(redirectUrl);
+  }
+
   return NextResponse.next();
 }
 
-// ✅ Protege apenas áreas privadas
 export const config = {
-  matcher: [
-    "/profile/:path*",
-    "/messages/:path*",
-    "/onboarding/:path*",
-    "/sobre/:path*",
-    "/configuracoes/:path*",
-  ],
+  matcher: ["/((?!_next|api|favicon|logo|avatars|anuncio|public).*)"],
 };
