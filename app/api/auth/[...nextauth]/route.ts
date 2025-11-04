@@ -32,8 +32,8 @@ const handler = NextAuth({
           });
         } else {
           // 🔒 Se existir, verifica senha
+          if (!user.password) return null;
           const isValid = await bcrypt.compare(credentials.password, user.password);
-          if (!isValid) return null;
         }
 
         return {
