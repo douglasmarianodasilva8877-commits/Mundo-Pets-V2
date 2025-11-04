@@ -10,19 +10,16 @@ export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // 🧠 Todos os hooks ficam antes de qualquer return
   const [tutor, setTutor] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // 🔒 Redireciona se não estiver logado
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-    }
+    if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
 
-  // 🧍 Carrega tutor salvo (ou sessão do NextAuth)
+  // 🧍 Carrega tutor da sessão ou do localStorage
   useEffect(() => {
     if (session?.user) {
       setTutor({
@@ -37,23 +34,23 @@ export default function Home() {
     }
   }, [session]);
 
-  // 🐾 Carregar posts do localStorage
+  // 🐾 Carregar posts salvos localmente
   useEffect(() => {
     const saved = localStorage.getItem("mundo-pets-posts");
     if (saved) setPosts(JSON.parse(saved));
     setLoading(false);
   }, []);
 
-  // 💾 Salvar posts localmente sempre que mudarem
+  // 💾 Atualiza localStorage quando houver novos posts
   useEffect(() => {
     localStorage.setItem("mundo-pets-posts", JSON.stringify(posts));
   }, [posts]);
 
-  // 🔄 Sincronizar posts offline quando a conexão voltar
+  // 🔄 Sincroniza posts offline quando volta a conexão
   useEffect(() => {
     const syncOfflinePosts = async () => {
       const offlinePosts = posts.filter((p) => p.offline);
-      if (offlinePosts.length === 0) return;
+      if (!offlinePosts.length) return;
 
       for (const post of offlinePosts) {
         try {
@@ -64,7 +61,7 @@ export default function Home() {
           });
           if (res.ok) post.offline = false;
         } catch (err) {
-          console.error("Falha ao sincronizar:", err);
+          console.warn("Falha ao sincronizar post offline:", err);
         }
       }
       setPosts([...posts]);
@@ -74,7 +71,7 @@ export default function Home() {
     return () => window.removeEventListener("online", syncOfflinePosts);
   }, [posts]);
 
-  // 🧩 Função para criar post
+  // ✏️ Criar novo post
   const handleCreate = async (content: string, image?: string) => {
     const newPost = {
       id: Date.now().toString(),
@@ -103,20 +100,18 @@ export default function Home() {
     }
   };
 
-  // 🚀 Retorno visual (depois dos hooks)
-  if (status === "loading") {
+  if (status === "loading")
     return (
       <div className="text-center text-gray-400 mt-10">
         Verificando login...
       </div>
     );
-  }
 
   return (
-    <section className="flex flex-col gap-5 mt-6">
-      {/* 🐶 Header com nome do usuário logado */}
+    <section className="flex flex-col gap-5 max-w-[680px] mx-auto w-full">
+      {/* 👋 Saudação e avatar */}
       {session?.user && (
-        <div className="flex items-center justify-between px-4">
+        <div className="flex items-center justify-between px-2 sm:px-0">
           <h1 className="text-2xl font-semibold text-teal-600">
             Olá, {session.user.name?.split(" ")[0]} 👋
           </h1>
@@ -128,16 +123,16 @@ export default function Home() {
         </div>
       )}
 
-      {/* 📝 Criar post */}
+      {/* 🐾 Criar post */}
       <Composer onPosted={handleCreate} />
 
-      {/* 📜 Feed */}
+      {/* 📜 Feed de posts */}
       {loading ? (
         <div className="text-center text-gray-400">Carregando feed...</div>
       ) : posts.length > 0 ? (
         <div className="space-y-5">
           {posts.map((p) => (
-            <PostCard key={p.id} post={p} tutor={tutor} />
+            <PostCard key={p.id} post={p} />
           ))}
         </div>
       ) : (

@@ -6,8 +6,8 @@ const SAMPLE = [
   {
     id: "1",
     petName: "thor_pet",
-    petImage: "/dog1.jpg",
-    tutorImage: "/tutor1.jpg",
+    petAvatar: "/dog1.jpg", // 🔹 era petImage
+    tutorAvatar: "/tutor1.jpg", // 🔹 era tutorImage
     content: "Brincando no parque 🐕💨",
     image: "/post1.jpg",
     createdAt: "2h",
@@ -15,8 +15,8 @@ const SAMPLE = [
   {
     id: "2",
     petName: "mia_cat",
-    petImage: "/cat1.jpg",
-    tutorImage: "/tutor2.jpg",
+    petAvatar: "/cat1.jpg", // 🔹 era petImage
+    tutorAvatar: "/tutor2.jpg", // 🔹 era tutorImage
     content: "Hora do soninho 😴🐾",
     image: "/post2.jpg",
     createdAt: "3h",

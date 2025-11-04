@@ -8,7 +8,7 @@ export default function HomePageClient() {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Carrega os posts da API
+  // 🔹 Carrega posts do servidor
   useEffect(() => {
     const fetchPosts = async () => {
       try {
@@ -21,19 +21,18 @@ export default function HomePageClient() {
         setLoading(false);
       }
     };
-
     fetchPosts();
   }, []);
 
-  // 🔹 Adiciona um novo post ao topo (após postar)
+  // 🔹 Cria novo post
   const handleNewPost = async (content: string, image?: string) => {
     try {
       const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          author: "Você 🐾",
-          avatar: "/avatar-sample.jpg",
+          petName: "Rex 🐾",
+          petAvatar: "/dog1.jpg",
           content,
           image,
         }),
@@ -53,7 +52,12 @@ export default function HomePageClient() {
       {/* 🔹 Cabeçalho */}
       <header className="navbar flex justify-between items-center px-6 py-3 bg-black/80 backdrop-blur-md shadow-lg border-b border-gray-800">
         <div className="flex items-center gap-3">
-          <img src="/logo-mundo-pets.png" alt="Logo Mundo Pets" width={50} height={50} />
+          <img
+            src="/logo-mundo-pets.png"
+            alt="Logo Mundo Pets"
+            width={50}
+            height={50}
+          />
           <h1 className="text-2xl font-bold text-[#00fff2] tracking-wide">
             Mundo <span className="text-[#ff7b00]">Pets</span>
           </h1>
@@ -73,19 +77,17 @@ export default function HomePageClient() {
         ) : posts.length === 0 ? (
           <p className="text-center text-gray-400">Nenhum post ainda 🐾</p>
         ) : (
-          posts.map((post) => (
-            <PostCard
-              key={post.id}
-              post={{
-                id: post.id,
-                petName: post.author, // usando o campo existente da API
-                petImage: post.image || "/dog1.jpg",
-                tutorImage: post.avatar,
-                content: post.content,
-                createdAt: post.createdAt,
-              }}
-            />
-          ))
+          <div className="flex flex-col gap-4">
+            {posts.map((post) => {
+              const formattedPost = {
+                ...post,
+                petName: post.author || "Pet Anônimo",
+                petAvatar: post.avatar || "/default-pet.png",
+              };
+
+              return <PostCard key={post.id} post={formattedPost} />;
+            })}
+          </div>
         )}
       </main>
     </>

@@ -32,26 +32,22 @@ export default function SidebarRight() {
   ];
 
   return (
-    <aside
-      className="hidden md:flex flex-col w-72 shrink-0 border-l border-gray-200 dark:border-gray-800 
-      bg-transparent dark:bg-transparent p-5 sticky top-16 h-[calc(100vh-4rem)]"
-    >
+    <aside className="hidden md:flex flex-col w-72 shrink-0 border-l border-gray-200 dark:border-gray-800 p-5 sticky top-16 h-[calc(100vh-4rem)] bg-transparent">
       <div className="overflow-y-auto pr-2 sidebar-scroll">
         {/* 💰 Anúncios patrocinados */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-3">
+        <section className="mb-8">
+          <header className="flex items-center gap-2 mb-3">
             <ShoppingBag className="text-teal-600 dark:text-teal-400 w-5 h-5" />
             <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-300 uppercase tracking-wide">
               Anúncios Patrocinados
             </h3>
-          </div>
+          </header>
 
           <ul className="space-y-4">
             {ads.map((ad) => (
               <li
                 key={ad.title}
-                className="bg-gray-50 dark:bg-[#0b1a27] border border-gray-200 dark:border-gray-700 
-                rounded-xl overflow-hidden hover:shadow-md transition"
+                className="bg-gray-50 dark:bg-[#0b1a27] border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-md transition"
               >
                 <a href={ad.link} className="block">
                   <img
@@ -71,24 +67,22 @@ export default function SidebarRight() {
               </li>
             ))}
           </ul>
-        </div>
+        </section>
 
-        {/* 🐕 Sugestões de amigos */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
+        {/* 🐾 Amigos sugeridos */}
+        <section>
+          <header className="flex items-center gap-2 mb-3">
             <Users className="text-teal-600 dark:text-teal-400 w-5 h-5" />
             <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-300 uppercase tracking-wide">
               Amigos Sugeridos
             </h3>
-          </div>
+          </header>
 
           <ul className="space-y-2">
             {amigos.map((a) => (
               <li
                 key={a.nome}
-                className="flex items-center justify-between gap-2 bg-gray-50 dark:bg-[#0b1a27] 
-                border border-gray-200 dark:border-gray-700 p-2 rounded-lg hover:bg-teal-50 
-                dark:hover:bg-[#0d1e2c] transition"
+                className="flex items-center justify-between gap-2 bg-gray-50 dark:bg-[#0b1a27] border border-gray-200 dark:border-gray-700 p-2 rounded-lg hover:bg-teal-50 dark:hover:bg-[#0d1e2c] transition"
               >
                 <div className="flex items-center gap-2">
                   <img
@@ -106,7 +100,7 @@ export default function SidebarRight() {
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       </div>
     </aside>
   );

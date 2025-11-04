@@ -1,60 +1,118 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Loader2, PawPrint, PlusCircle } from "lucide-react";
+import { Loader2, PawPrint } from "lucide-react";
+import Composer from "@/components/Composer";
+import PostCard from "@/components/feed/PostCard";
+
+interface Post {
+  id: string;
+  petName: string;
+  petAvatar: string;
+  content: string;
+  image?: string;
+  createdAt: string;
+  likes?: number;
+  comments?: number;
+  offline?: boolean;
+  tutorName?: string;   // 🧍 opcional: nome do tutor
+  tutorAvatar?: string; // 🧍 opcional: avatar do tutor
+}
 
 export default function FeedPage() {
-  const [posts, setPosts] = useState<any[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newPost, setNewPost] = useState("");
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [status, setStatus] = useState("");
 
-  const router = useRouter();
+  // 🐶 Pet logado (mock temporário)
+  const pet = {
+    name: "Rex",
+    avatarUrl: "/avatars/avatars-dog2.png",
+    tutorName: "Douglas",
+    tutorAvatar: "/avatars/tutor-douglas.png",
+  };
 
-  // 🔹 Busca os posts
+  // 🔹 Dados de exemplo
+  const SAMPLE: Post[] = [
+    {
+      id: "1",
+      petName: "Rex",
+      petAvatar: "/avatars/avatars-dog2.png",
+      content: "Aproveitando o dia ensolarado no parque! ☀️🐾",
+      image: "/posts/rex-park.jpg",
+      createdAt: "há 2 horas",
+      likes: 5,
+      comments: 1,
+      tutorName: "Douglas",
+      tutorAvatar: "/avatars/tutor-douglas.png",
+    },
+    {
+      id: "2",
+      petName: "Luna",
+      petAvatar: "/avatars/avatars-cat1.png",
+      content: "Hora da soneca depois do petisco 😸💤",
+      image: "/posts/luna-nap.jpg",
+      createdAt: "há 4 horas",
+      likes: 8,
+      comments: 3,
+      tutorName: "Carla",
+      tutorAvatar: "/avatars/tutor-carla.png",
+    },
+  ];
+
+  // 🔹 Carrega posts da API ou cache local
   useEffect(() => {
-    const fetchPosts = async () => {
+    const loadPosts = async () => {
       try {
-        const res = await fetch("/api/posts");
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message);
-        setPosts(data.posts || []);
+        setLoading(true);
+
+        if (navigator.onLine) {
+          const res = await fetch("/api/posts");
+          const data = await res.json();
+
+          if (!res.ok) throw new Error(data.message);
+          setPosts(data.posts?.length ? data.posts : SAMPLE);
+          localStorage.setItem(
+            "mundo-pets-feed",
+            JSON.stringify(data.posts || SAMPLE)
+          );
+        } else {
+          const local = localStorage.getItem("mundo-pets-feed");
+          if (local) setPosts(JSON.parse(local));
+          else setPosts(SAMPLE);
+        }
       } catch (err: any) {
-        console.error("Erro ao carregar posts:", err);
-        setStatus("❌ Erro ao carregar feed");
+        console.error("Erro ao carregar feed:", err);
+        setStatus("⚠️ Não foi possível carregar o feed.");
+        setPosts(SAMPLE);
       } finally {
         setLoading(false);
       }
     };
-    fetchPosts();
+
+    loadPosts();
   }, []);
 
-  // 🔹 Cria nova postagem
-  const handlePostSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPost.trim() && !photo) return;
+  // 🐾 Novo post criado
+  const handlePosted = (content: string, image?: string) => {
+    const newPost: Post = {
+      id: Date.now().toString(),
+      petName: pet.name,
+      petAvatar: pet.avatarUrl,
+      content,
+      image,
+      createdAt: "agora mesmo",
+      likes: 0,
+      comments: 0,
+      offline: !navigator.onLine,
+      tutorName: pet.tutorName,
+      tutorAvatar: pet.tutorAvatar,
+    };
 
-    setStatus("Publicando...");
-    const formData = new FormData();
-    formData.append("content", newPost);
-    if (photo) formData.append("photo", photo);
-
-    try {
-      const res = await fetch("/api/posts", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      setPosts((prev) => [data.post, ...prev]);
-      setNewPost("");
-      setPhoto(null);
-      setPreview(null);
-      setStatus("✅ Post publicado!");
-    } catch (err: any) {
-      console.error(err);
-      setStatus("❌ " + err.message);
-    }
+    const updatedPosts = [newPost, ...posts];
+    setPosts(updatedPosts);
+    localStorage.setItem("mundo-pets-feed", JSON.stringify(updatedPosts));
+    setStatus("✅ Post publicado!");
   };
 
   if (loading)
@@ -65,71 +123,33 @@ export default function FeedPage() {
     );
 
   return (
-    <div className="max-w-2xl mx-auto mt-6 p-4">
-      <h1 className="text-2xl font-semibold flex items-center gap-2 mb-6">
+    <main className="max-w-2xl mx-auto mt-24 p-4 space-y-6">
+      <h1 className="text-2xl font-semibold flex items-center gap-2 mb-2">
         <PawPrint className="w-5 h-5 text-teal-600" />
-        Mundo Pets Feed
+        Feed do Mundo Pets
       </h1>
 
-      {/* Criar novo post */}
-      <form onSubmit={handlePostSubmit} className="mb-8 bg-white dark:bg-[#0d1a27] p-4 rounded-xl shadow-md">
-        <textarea
-          value={newPost}
-          onChange={(e) => setNewPost(e.target.value)}
-          placeholder="O que seu pet está pensando hoje? 🐾"
-          className="w-full border rounded-lg p-3 text-gray-800 dark:text-gray-100 dark:bg-[#102030] focus:ring-2 focus:ring-teal-500 mb-3"
-        />
+      {/* Criador de post */}
+      <Composer onPosted={handlePosted} pet={pet} />
 
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            setPhoto(file || null);
-            if (file) setPreview(URL.createObjectURL(file));
-          }}
-        />
-        {preview && (
-          <img src={preview} className="mt-3 rounded-lg w-full object-cover" alt="Preview" />
-        )}
+      {/* Feed */}
+      {posts.length === 0 ? (
+        <p className="text-center text-gray-500 dark:text-gray-400 py-10">
+          Nenhuma publicação ainda. Que tal começar agora? 🐶
+        </p>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {posts.map((post) => (
+            <PostCard key={post.id} post={post} />
+          ))}
+        </div>
+      )}
 
-        <button
-          type="submit"
-          className="mt-3 flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white py-2.5 rounded-lg w-full transition"
-        >
-          <PlusCircle className="w-4 h-4" />
-          Publicar
-        </button>
-
-        {status && (
-          <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">{status}</p>
-        )}
-      </form>
-
-      {/* Lista de posts */}
-      <div className="flex flex-col gap-4">
-        {posts.length === 0 && (
-          <p className="text-center text-gray-500 dark:text-gray-400">
-            Nenhuma publicação ainda. Que tal começar agora? 🐶
-          </p>
-        )}
-
-        {posts.map((post) => (
-          <div key={post.id} className="bg-white dark:bg-[#0d1a27] p-4 rounded-xl shadow-md">
-            {post.photoUrl && (
-              <img
-                src={post.photoUrl}
-                alt={post.content.slice(0, 20)}
-                className="w-full h-64 object-cover rounded-lg mb-3"
-              />
-            )}
-            <p className="text-gray-800 dark:text-gray-100">{post.content}</p>
-            <span className="text-xs text-gray-500 block mt-2">
-              🐾 {post.pet?.name || "Pet"} - {new Date(post.createdAt).toLocaleString("pt-BR")}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
+      {status && (
+        <p className="text-sm text-gray-600 dark:text-gray-300 mt-4 text-center">
+          {status}
+        </p>
+      )}
+    </main>
   );
 }

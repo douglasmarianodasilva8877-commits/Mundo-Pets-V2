@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Providers from "./providers";
 import Navbar from "@/components/Navbar";
 import SideMenu from "@/components/SideMenu";
+import SidebarRight from "@/components/SidebarRight";
 
 export const metadata: Metadata = {
   title: "Mundo Pets 🌎",
@@ -21,17 +22,24 @@ export default function RootLayout({
         <link rel="icon" href="/logo-mundo-pets.png" />
       </head>
 
-      <body className="bg-white dark:bg-[#0d1a27] text-gray-900 dark:text-gray-100 min-h-screen flex flex-col">
+      <body className="bg-[var(--bg)] text-[var(--fg)] min-h-screen flex flex-col">
         <Providers>
-          {/* 🐾 Navbar fixa no topo */}
+          {/* 🐾 Navbar translúcida fixa */}
           <Navbar />
 
-          <div className="flex flex-1 pt-16">
-            {/* 🧭 Menu lateral fixo (somente desktop) */}
-            <SideMenu />
+          <div className="app-grid container mt-[85px]">
+            {/* 🧭 Sidebar esquerda fixa */}
+            <aside className="sidebar-left-container">
+              <SideMenu />
+            </aside>
 
-            {/* 🧩 Conteúdo das páginas */}
-            <main className="flex-1 p-4 md:ml-64">{children}</main>
+            {/* 🐶 Feed central */}
+            <main className="flex flex-col gap-6">{children}</main>
+
+            {/* 📢 Sidebar direita (anúncios/amigos) */}
+            <aside className="sidebar-right sidebar-scroll">
+              <SidebarRight />
+            </aside>
           </div>
         </Providers>
       </body>

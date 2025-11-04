@@ -70,7 +70,7 @@ export default function PerfilPage() {
 
           <div className="space-y-5">
             {posts.map((post) => (
-              <PostCard key={post.id} post={post} tutor={{ name: pet.tutor }} />
+              <PostCard key={post.id} post={post} />
             ))}
           </div>
         </>
