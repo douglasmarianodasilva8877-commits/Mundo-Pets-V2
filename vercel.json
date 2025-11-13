@@ -1,57 +1,32 @@
 {
   "version": 2,
-  "routes": [
+
+  "builds": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/login",
-      "dest": "/auth/login"
-    },
-    {
-      "src": "/register",
-      "dest": "/auth/signup"
-    },
-    {
-      "src": "/parceiros",
-      "dest": "/sponsors"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "src": "next.config.js",
+      "use": "@vercel/next"
     }
   ],
+
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/:path*" },
+    { "source": "/login", "destination": "/auth/login" },
+    { "source": "/register", "destination": "/auth/signup" },
+    { "source": "/parceiros", "destination": "/sponsors" }
+  ],
+
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=3600, must-revalidate"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        }
+        { "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
       ]
     }
   ],
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "functions": {
-    "api/**/*.js": {
-      "maxDuration": 10
-    }
-  },
+
   "env": {
     "NEXT_PUBLIC_APP_NAME": "Mundo Pets",
     "NEXT_PUBLIC_BASE_URL": "https://mundo-pets-v2.vercel.app",
