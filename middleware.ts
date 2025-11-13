@@ -1,15 +1,10 @@
-import { withAuth } from "next-auth/middleware";
-
-export default withAuth({
-  pages: {
-    signIn: "/login",
-  },
-});
+// middleware.ts
+export { default } from "next-auth/middleware";
 
 export const config = {
   matcher: [
-    "/feed/:path*", // protege o feed
-    "/perfil/:path*", // protege perfil de usuário
-    "/pets/:path*", // protege área de pets
-  ],
+    "/perfil/:path*", 
+    "/configuracoes/:path*",
+    "/admin/:path*"
+  ], // protege apenas áreas restritas
 };

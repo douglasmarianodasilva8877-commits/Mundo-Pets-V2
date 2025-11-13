@@ -1,0 +1,20 @@
+[
+  {
+    "id": "1",
+    "nome": "Premier Pet",
+    "descricao": "Ração super premium para todas as raças.",
+    "logo": "/anuncio/premier-logo.jpg",
+    "midia": "/anuncio/premier-banner.jpg",
+    "tipoMidia": "image",
+    "site": "https://www.premierpet.com.br"
+  },
+  {
+    "id": "2",
+    "nome": "Petflix",
+    "descricao": "Streaming de vídeos para pets 🐾",
+    "logo": "/anuncio/petflix-logo.png",
+    "midia": "/anuncio/petflix.mp4",
+    "tipoMidia": "video",
+    "site": "https://www.petflix.com"
+  }
+]

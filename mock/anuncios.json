@@ -1,0 +1,77 @@
+{
+  "banners": [
+    {
+      "id": "1",
+      "partnerName": "Premier Pet",
+      "type": "banner",
+      "title": "Ração Premier — Nutrição completa 🦴",
+      "description": "Alimente seu pet com qualidade e sabor.",
+      "mediaUrl": "/anuncio/premier-banner.jpg",
+      "targetUrl": "https://www.premierpet.com.br"
+    },
+    {
+      "id": "2",
+      "partnerName": "Petlove",
+      "type": "banner",
+      "title": "Petlove — Tudo para o seu melhor amigo 💕",
+      "description": "Frete grátis acima de R$99!",
+      "mediaUrl": "/anuncio/petlove-banner.jpg",
+      "targetUrl": "https://www.petlove.com.br"
+    },
+    {
+      "id": "3",
+      "partnerName": "Pedigree",
+      "type": "banner",
+      "title": "Pedigree — Amor e energia para seu cão 🐶",
+      "description": "Compre agora e receba em casa.",
+      "mediaUrl": "/anuncio/pedigree-banner.jpg",
+      "targetUrl": "https://www.pedigree.com.br"
+    }
+  ],
+  "produtos": [
+    {
+      "id": "p1",
+      "partnerName": "PetShop Central",
+      "type": "produto",
+      "title": "Brinquedo Bola Interativa",
+      "mediaUrl": "/produtos/brinquedo-bola.jpg",
+      "targetUrl": "https://www.petshopcentral.com.br/produto/bola"
+    },
+    {
+      "id": "p2",
+      "partnerName": "PetStore Luxo",
+      "type": "produto",
+      "title": "Coleira Luxo Premium",
+      "mediaUrl": "/produtos/coleira-luxo.jpg",
+      "targetUrl": "https://www.petstoreluxo.com.br/coleira"
+    },
+    {
+      "id": "p3",
+      "partnerName": "PetHome",
+      "type": "produto",
+      "title": "Caminha Fofinha Confort",
+      "mediaUrl": "/produtos/caminha-fofinha.jpg",
+      "targetUrl": "https://www.pethome.com.br/caminha"
+    }
+  ],
+  "videos": [
+    {
+      "id": "v1",
+      "partnerName": "PetFood Brasil",
+      "type": "video",
+      "title": "Como escolher a melhor ração",
+      "description": "Especialistas da PetFood explicam os tipos de ração.",
+      "mediaUrl": "/videos/petfood-thumb.jpg",
+      "targetUrl": "https://www.youtube.com/watch?v=abcd1234"
+    },
+    {
+      "id": "v2",
+      "partnerName": "Treinamento Canino BR",
+      "type": "video",
+      "title": "Ensine seu cão a sentar 🐕",
+      "description": "Vídeo curto com técnicas de reforço positivo.",
+      "mediaUrl": "/videos/treinamento-thumb.jpg",
+      "targetUrl": "https://www.youtube.com/watch?v=wxyz5678"
+    }
+  ]
+}

@@ -1,89 +1,84 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import bcrypt from "bcryptjs";
+
+/**
+ * 🔹 Rota de Pets (GET e POST)
+ * - GET: Lista todos os pets
+ * - POST: Cria um pet vinculado a um tutor (User)
+ */
+export async function GET() {
+  try {
+    const pets = await prisma.pet.findMany({
+      include: {
+        owner: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    });
+    return NextResponse.json(pets);
+  } catch (error) {
+    console.error("❌ Erro ao buscar pets:", error);
+    return NextResponse.json(
+      { error: "Erro ao buscar pets." },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
+    const body = await req.json();
+    const { name, species, breed, age, bio, avatarUrl, ownerId } = body;
 
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-    const userName = formData.get("userName") as string;
-    const petName = formData.get("petName") as string;
-    const species = formData.get("species") as string;
-    const bio = formData.get("bio") as string;
-    const file = formData.get("photo") as File | null;
-
-    // ===== Upload da imagem =====
-    let avatarUrl: string | undefined;
-
-    if (file) {
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      avatarUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
-    }
-
-    // ===== Verifica se o tutor já existe =====
-    let user = await prisma.user.findUnique({ where: { email } });
-
-    if (!user) {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      user = await prisma.user.create({
-        data: {
-          name: userName,
-          email,
-          password: hashedPassword,
-          role: "USER",
-        },
-      });
-    }
-
-    // ===== Verifica se já existe pet para este tutor =====
-    const existingPet = await prisma.pet.findUnique({
-      where: { ownerEmail: email },
-    });
-
-    if (existingPet) {
+    if (!name || !species || !ownerId) {
       return NextResponse.json(
-        { success: false, message: "Este tutor já possui um pet cadastrado." },
+        { error: "Campos obrigatórios ausentes." },
         { status: 400 }
       );
     }
 
-    // ===== Cria o pet vinculado =====
-    const slug = petName
+    // 🔍 Busca o tutor
+    const owner = await prisma.user.findUnique({
+      where: { id: ownerId },
+      select: { id: true, email: true },
+    });
+
+    if (!owner) {
+      return NextResponse.json(
+        { error: "Tutor não encontrado." },
+        { status: 404 }
+      );
+    }
+
+    // 🧠 Cria slug único
+    const slug = `${name
       .toLowerCase()
       .replace(/\s+/g, "-")
-      .replace(/[^\w-]+/g, "");
+      .replace(/[^\w-]+/g, "")}-${Date.now()}`;
 
+    // 🐾 Cria o pet com todos os campos necessários
     const pet = await prisma.pet.create({
       data: {
-        name: petName,
+        name,
         species,
+        breed,
+        age,
         bio,
         avatarUrl,
-        slug,
-        ownerEmail: email,
-        ownerId: user.id,
+        slug, // ✅ campo obrigatório
+        ownerId,
+        ownerEmail: owner.email, // ✅ campo obrigatório
       },
     });
 
     return NextResponse.json(
-      { success: true, message: "Cadastro concluído!", user, pet },
+      { success: true, message: "Pet criado com sucesso!", pet },
       { status: 201 }
     );
-  } catch (err: any) {
-    console.error("❌ Erro no cadastro:", err);
-
-    if (err.code === "P2002") {
-      return NextResponse.json(
-        { success: false, message: "E-mail já cadastrado ou pet duplicado." },
-        { status: 400 }
-      );
-    }
-
+  } catch (error: any) {
+    console.error("❌ Erro ao criar pet:", error);
     return NextResponse.json(
-      { success: false, message: err.message || "Erro interno no servidor." },
+      { error: error.message || "Erro interno no servidor." },
       { status: 500 }
     );
   }

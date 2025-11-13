@@ -1,85 +1,115 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import Composer from "@/components/Composer";
 import PostCard from "@/components/PostCard";
-import { Camera, Edit3 } from "lucide-react";
+import { useFeed } from "@/context/FeedContext";
 
 export default function PerfilPage() {
+  const { posts, addPost } = useFeed();
   const [pet, setPet] = useState<any>(null);
-  const [posts, setPosts] = useState<any[]>([]);
 
   useEffect(() => {
-    const savedPet = localStorage.getItem("mundo-pets-pet");
-    const savedPosts = localStorage.getItem("mundo-pets-posts");
-    if (savedPet) setPet(JSON.parse(savedPet));
-    if (savedPosts) setPosts(JSON.parse(savedPosts));
+    const storedPet = {
+      name: "Luna",
+      avatar: "/placeholder-pet.png",
+      bio: "Amante de brinquedos e sonecas ao sol ☀️",
+      followers: 120,
+      following: 89,
+    };
+    setPet(storedPet);
   }, []);
 
-  const handlePosted = (content: string, image?: string) => {
+  // ✅ Criação de post compatível com FeedContext
+  const handlePosted = async (content: string, image?: string | File) => {
+    let imageUrl: string | undefined;
+
+    if (image instanceof File) {
+      imageUrl = URL.createObjectURL(image);
+    } else if (typeof image === "string") {
+      imageUrl = image;
+    }
+
     const newPost = {
-      id: Date.now(),
-      author: pet?.name || "Pet Anônimo 🐾",
-      avatar: pet?.avatarUrl || "/placeholder-pet.png",
+      id: Date.now().toString(),
+      petName: pet?.name || "Pet Anônimo 🐾",
+      petAvatar: pet?.avatar || "/placeholder-pet.png",
       content,
-      image,
+      media: imageUrl ?? undefined, // FeedContext espera string
       createdAt: "agora mesmo",
       likes: 0,
       comments: 0,
     };
 
-    setPosts((prev) => [newPost, ...prev]);
-    localStorage.setItem(
-      "mundo-pets-posts",
-      JSON.stringify([newPost, ...posts])
-    );
+    addPost(newPost);
   };
 
+  if (!pet) {
+    return (
+      <div className="flex justify-center items-center h-screen text-gray-500">
+        Carregando perfil...
+      </div>
+    );
+  }
+
   return (
-    <section className="max-w-2xl mx-auto p-4 mt-8">
-      {pet ? (
-        <>
-          <div className="flex flex-col items-center text-center mb-8">
-            <div className="relative">
-              <img
-                src={pet.avatarUrl || "/placeholder-pet.png"}
-                alt={pet.name}
-                className="w-32 h-32 rounded-full object-cover border-4 border-teal-500 shadow-md"
-              />
-              <button
-                className="absolute bottom-0 right-0 bg-teal-500 text-white p-2 rounded-full shadow-md hover:bg-teal-600 transition"
-                title="Alterar foto"
-              >
-                <Camera size={16} />
-              </button>
-            </div>
+    <main className="flex-1 max-w-3xl mx-auto px-6 py-8 bg-gray-50 dark:bg-[#0d1b2a] rounded-3xl shadow-inner">
+      {/* Cabeçalho do perfil */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="text-center mb-8"
+      >
+        <img
+          src={pet.avatar}
+          alt={pet.name}
+          className="w-24 h-24 rounded-full mx-auto border-4 border-orange-400 shadow-md"
+        />
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-4">
+          {pet.name}
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400 mt-2">{pet.bio}</p>
 
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-3">
-              {pet.name}
-            </h1>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
-              {pet.species || "Pet"} — {pet.age || "idade não informada"}
-            </p>
+        <div className="flex justify-center gap-6 mt-4 text-sm text-gray-500 dark:text-gray-400">
+          <span>
+            <strong className="text-gray-800 dark:text-gray-100">
+              {pet.followers}
+            </strong>{" "}
+            seguidores
+          </span>
+          <span>
+            <strong className="text-gray-800 dark:text-gray-100">
+              {pet.following}
+            </strong>{" "}
+            seguindo
+          </span>
+        </div>
+      </motion.div>
 
-            <button className="mt-3 px-4 py-2 bg-gray-200 dark:bg-gray-800 text-sm rounded-full flex items-center gap-2 hover:bg-gray-300 dark:hover:bg-gray-700 transition">
-              <Edit3 size={14} /> Editar Perfil
-            </button>
-          </div>
+      {/* Criador de post */}
+      <Composer onPosted={handlePosted} pet={pet} />
 
-          <Composer onPosted={handlePosted} pet={pet} />
-
-          <div className="space-y-5">
-            {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
-          </div>
-        </>
-      ) : (
-        <p className="text-center text-gray-400">
-          Nenhum pet cadastrado. Vá para <strong>“Meu Pet”</strong> para criar o
-          perfil do seu bichinho 🐾
-        </p>
-      )}
-    </section>
+      {/* Lista de posts */}
+      <div className="space-y-5 mt-8">
+        {posts
+          .filter((post) => post.petName === pet.name)
+          .map((post) => (
+            // ✅ Conversão segura: PostCard espera media: any[]
+            <PostCard
+              key={post.id}
+              post={{
+                ...post,
+                media: post.media
+                  ? Array.isArray(post.media)
+                    ? post.media
+                    : [post.media]
+                  : [],
+              }}
+            />
+          ))}
+      </div>
+    </main>
   );
 }

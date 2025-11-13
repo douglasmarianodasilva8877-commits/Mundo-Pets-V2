@@ -1,83 +1,112 @@
 "use client";
 
-import React from "react";
+import Image from "next/image";
 import Link from "next/link";
-import {
-  Menu,
-  Bell,
-  MessageCircle,
-  User,
-  Search,
-  Home,
-  Info,
-  PawPrint,
-} from "lucide-react";
+import { useTheme } from "next-themes";
+import { Sun, Moon, Search } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function Navbar() {
-  return (
-    <header className="fixed top-0 left-0 w-full bg-white/95 dark:bg-[#0d1a27]/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 z-50 shadow-sm">
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-4 md:px-8 h-16">
-        
-        {/* 🔹 LOGO — Imponente e com destaque */}
-        <Link
-          href="/"
-          className="flex items-center gap-3 group shrink-0"
-          title="Início"
-        >
-          <img
-            src="/logo-mundo-pets.png"
-            alt="Mundo Pets"
-            className="w-12 h-12 object-contain transition-transform group-hover:scale-110"
-          />
-        </Link>
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<string[]>([]);
 
-        {/* 🔹 Barra de busca central */}
-        <div className="hidden md:flex items-center bg-gray-100 dark:bg-[#1a2b3d] rounded-full px-4 py-2 w-[400px] shadow-sm border border-gray-200 dark:border-gray-700 focus-within:ring-2 focus-within:ring-teal-500 transition-all duration-300">
-          <Search className="w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Pesquisar pets, tutores..."
-            className="bg-transparent outline-none px-2 text-sm w-full text-gray-700 dark:text-gray-200 placeholder-gray-400"
-          />
+  // Evita problema de hidratação (Next.js)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  const toggleTheme = () => {
+    setTheme(theme === "light" ? "dark" : "light");
+  };
+
+  // 🔍 Simulação de pesquisa (posteriormente integrar com Supabase)
+  const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fakeData = ["Post do Rex", "Evento Pet Lovers", "Arquivo Luna.png"];
+    const filtered = fakeData.filter((item) =>
+      item.toLowerCase().includes(query.toLowerCase())
+    );
+    setResults(filtered);
+  };
+
+  return (
+    <header className="navbar fixed top-0 left-0 right-0 z-50 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
+      <div className="max-w-6xl mx-auto flex items-center justify-between px-6 sm:px-8 lg:px-10 h-[var(--navbar-height)]">
+        {/* 🔹 LEFT: logo */}
+        <div className="flex items-center nav-left" style={{ minWidth: 0 }}>
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/logo-mundo-pets.png"
+              alt="Logo Mundo Pets"
+              width={44}
+              height={44}
+              className="rounded-full select-none"
+              priority
+            />
+          </Link>
         </div>
 
-        {/* 🔹 Ícones de navegação e ações agrupados à direita */}
-        <nav className="flex items-center gap-6 text-gray-700 dark:text-gray-200">
-          <Link href="/" className="hover:text-teal-500 transition" title="Início">
-            <Home className="w-6 h-6" />
-          </Link>
-
-          <Link href="/onboarding" className="hover:text-teal-500 transition" title="Meu Pet">
-            <PawPrint className="w-6 h-6" />
-          </Link>
-
-          <Link href="/feed" className="hover:text-teal-500 transition" title="Feed">
-            <MessageCircle className="w-6 h-6" />
-          </Link>
-
-          <Link href="/sobre" className="hover:text-teal-500 transition" title="Sobre">
-            <Info className="w-6 h-6" />
-          </Link>
-
-          <Link href="/perfil" className="hover:text-teal-500 transition" title="Perfil">
-            <User className="w-6 h-6" />
-          </Link>
-
-          <button
-            className="hover:text-teal-500 transition"
-            title="Notificações"
+        {/* 🔹 CENTER: barra de pesquisa */}
+        <div className="flex-1 flex justify-center px-4">
+          <form
+            onSubmit={handleSearch}
+            className="relative w-full max-w-md flex items-center"
           >
-            <Bell className="w-6 h-6" />
+            <Search className="absolute left-4 w-5 h-5 text-gray-400 dark:text-gray-500" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="🔍 Pesquise por pets, posts ou arquivos incríveis..."
+              className="w-full bg-gradient-to-r from-gray-100/90 to-white/90 dark:from-gray-800/80 dark:to-gray-900/80 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 rounded-2xl py-2.5 pl-11 pr-4 shadow-sm outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white dark:focus:bg-gray-800 transition-all duration-300 text-[15px] tracking-wide"
+            />
+            {/* Resultados abaixo da barra */}
+            {results.length > 0 && (
+              <ul className="absolute top-12 left-0 right-0 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl overflow-hidden animate-fade-in">
+                {results.map((item) => (
+                  <li
+                    key={item}
+                    className="px-4 py-2 text-sm hover:bg-teal-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </form>
+        </div>
+
+        {/* 🔹 RIGHT: tema + avatar */}
+        <div className="flex items-center nav-right" style={{ gap: 12 }}>
+          {/* botão tema */}
+          <button
+            onClick={toggleTheme}
+            aria-label="Alternar tema"
+            className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition flex items-center justify-center"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            {theme === "light" ? (
+              <Moon size={22} className="text-gray-700 dark:text-gray-300" />
+            ) : (
+              <Sun size={24} className="text-yellow-400" />
+            )}
           </button>
 
-          {/* Menu Mobile (opcional) */}
-          <button
-            className="md:hidden hover:text-teal-500 transition"
-            title="Menu"
-          >
-            <Menu className="w-7 h-7" />
-          </button>
-        </nav>
+          {/* avatar */}
+          <div className="avatar-wrap" style={{ marginLeft: 8, marginRight: 6 }}>
+            <Image
+              src="/thor_pet.webp"
+              alt="Avatar do Pet"
+              width={44}
+              height={44}
+              className="rounded-full border border-white/20"
+            />
+          </div>
+        </div>
       </div>
     </header>
   );

@@ -25,7 +25,6 @@ export default function LoginPage() {
     if (res?.error) {
       setError("E-mail ou senha incorretos.");
     } else {
-      // ✅ Redireciona para feed — o middleware decide se vai para create pet
       window.location.href = "/feed";
     }
   };

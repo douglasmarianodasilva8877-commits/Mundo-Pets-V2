@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import type { User } from "@prisma/client";
 
 const handler = NextAuth({
   providers: [
@@ -14,36 +15,37 @@ const handler = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // 🔍 Busca o usuário
-        let user = await prisma.user.findUnique({
+        // Tipagem explícita do usuário com pets
+        let user: (User & { pets: any[] }) | null = await prisma.user.findUnique({
           where: { email: credentials.email },
-          include: { pet: true },
+          include: { pets: true },
         });
 
-        // 🆕 Se não existir, cria automaticamente o usuário e o pet
+        // 🆕 Cria usuário e pet se não existir
         if (!user) {
           const hashedPassword = await bcrypt.hash(credentials.password, 10);
 
-          user = await prisma.user.create({
+          user = (await prisma.user.create({
             data: {
               email: credentials.email,
               password: hashedPassword,
               name: "Novo Tutor",
               role: "USER",
-              pet: {
+              pets: {
                 create: {
                   name: "Meu Pet",
                   slug: `pet-${Date.now()}`,
                   species: "Desconhecido",
+                  ownerEmail: credentials.email, // ✅ adiciona campo obrigatório
                 },
               },
             },
-            include: { pet: true },
-          });
+            include: { pets: true },
+          })) as User & { pets: any[] };
 
           console.log("✅ Novo usuário criado:", user.email);
         } else {
-          // 🔒 Se existir, valida a senha
+          // 🔒 Valida senha
           if (!user.password) return null;
           const isValid = await bcrypt.compare(credentials.password, user.password);
           if (!isValid) return null;
@@ -58,11 +60,13 @@ const handler = NextAuth({
       },
     }),
   ],
+
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/login",
   },
+
   callbacks: {
     async jwt({ token, user }) {
       if (user) token.id = user.id;
@@ -70,7 +74,6 @@ const handler = NextAuth({
     },
     async session({ session, token }) {
       if (token?.id) {
-        // garante que seja string para evitar erro de tipo
         session.user.id = String(token.id);
       }
       return session;

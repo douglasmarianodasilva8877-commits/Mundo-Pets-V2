@@ -1,147 +1,156 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { motion } from "framer-motion";
+import { PawPrint, Image as ImageIcon, Video as VideoIcon, X } from "lucide-react";
+import { useFeed } from "@/context/FeedContext";
 
 interface ComposerProps {
-  onPosted: (content: string, image?: string) => void; // 🔹 nome padronizado
+  onPosted?: (content: string, media?: string | File) => Promise<void>;
   pet?: any;
 }
 
 export default function Composer({ onPosted, pet }: ComposerProps) {
+  const { addPost } = useFeed();
   const [text, setText] = useState("");
-  const [image, setImage] = useState<string | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [mediaList, setMediaList] = useState<{ url: string; type: "image" | "video" }[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [posts, setPosts] = useState<any[]>([]);
 
-  // 🔄 Carregar posts do localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("mundo-pets-posts");
-    if (saved) setPosts(JSON.parse(saved));
-  }, []);
+  // Upload de imagem/vídeo
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
 
-  // 💾 Salvar posts sempre que mudarem
-  useEffect(() => {
-    localStorage.setItem("mundo-pets-posts", JSON.stringify(posts));
-  }, [posts]);
-
-  // 📸 Upload de imagem (mock/local)
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+    setUploading(true);
     try {
-      setUploading(true);
-      const reader = new FileReader();
-      reader.onload = () => {
-        setPreview(reader.result as string);
-        setImage(reader.result as string);
-      };
-      reader.readAsDataURL(file); // simula upload local
-    } catch (error) {
-      console.error("Erro ao carregar imagem:", error);
-      alert("❌ Falha ao processar imagem.");
+      const uploaded: { url: string; type: "image" | "video" }[] = [];
+      for (const file of files) {
+        const form = new FormData();
+        form.append("file", file);
+
+        const res = await fetch("/api/upload", { method: "POST", body: form });
+        const data = await res.json();
+
+        if (res.ok && data.url) {
+          uploaded.push({
+            url: data.url,
+            type: file.type.startsWith("video") ? "video" : "image",
+          });
+        }
+      }
+      setMediaList((prev) => [...prev, ...uploaded]);
+    } catch (err) {
+      console.error("Erro ao enviar mídia:", err);
     } finally {
       setUploading(false);
     }
   };
 
-  // 🐾 Publicar post (local e online)
+  const removeMedia = (i: number) => {
+    setMediaList((prev) => prev.filter((_, idx) => idx !== i));
+  };
+
   const publish = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() && mediaList.length === 0) return;
+
+    // 🔧 Ajuste cirúrgico — convertendo mediaList[] para string
+    const firstMediaUrl = mediaList.length > 0 ? mediaList[0].url : undefined;
 
     const newPost = {
-      author: pet?.name || "Pet Anônimo 🐾",
-      avatar: pet?.avatarUrl || "/placeholder-pet.png",
+      id: Date.now().toString(),
+      petName: pet?.name || "Pet Anônimo 🐾",
+      petAvatar: pet?.avatar || "/placeholder-pet.png",
       content: text,
-      image,
+      media: firstMediaUrl, // ✅ agora compatível com FeedContext
+      createdAt: "agora mesmo",
+      likes: 0,
+      comments: 0,
     };
 
-    try {
-      // 🔹 Envia para API (modo online)
-      if (navigator.onLine) {
-        await onPosted(text, image || undefined);
-      }
-
-      // 🔹 Modo offline ou fallback
-      const localPost = {
-        id: Date.now().toString(),
-        createdAt: "agora mesmo",
-        likes: 0,
-        comments: 0,
-        offline: !navigator.onLine,
-        ...newPost,
-      };
-
-      setPosts((prev) => [localPost, ...prev]);
-      setText("");
-      setImage(null);
-      setPreview(null);
-    } catch (error) {
-      console.error("Erro ao publicar:", error);
-      alert("⚠️ Não foi possível publicar.");
-    }
+    addPost(newPost);
+    if (onPosted) await onPosted(text, firstMediaUrl);
+    setText("");
+    setMediaList([]);
   };
 
   return (
-    <div className="composer card bg-white/90 dark:bg-[#0d1a27] border border-gray-200 dark:border-gray-700 p-4 rounded-xl shadow-sm mb-5">
-      <div className="flex items-start gap-3">
-        <img
-          src={pet?.avatarUrl || "/placeholder-pet.png"}
-          alt={pet?.name || "Pet"}
-          className="w-12 h-12 rounded-full object-cover border border-gray-300 dark:border-gray-700"
-        />
+    <motion.div
+      className="w-full bg-white/80 dark:bg-[#15283a]/80 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 shadow-sm"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="O que seu pet está pensando hoje? 🐾"
+        className="w-full p-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-transparent text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-orange-400 resize-none"
+        rows={3}
+      />
 
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={`O que ${pet?.name || "seu pet"} está pensando?`}
-          className="flex-1 bg-transparent border border-gray-300 dark:border-gray-700 rounded-lg p-3 text-sm resize-none focus:ring-2 focus:ring-teal-500 outline-none"
-          rows={3}
-        />
-      </div>
-
-      {/* Preview da imagem */}
-      {preview && (
-        <div className="mt-3 relative">
-          <img
-            src={preview}
-            alt="Pré-visualização"
-            className="w-full max-h-72 object-cover rounded-lg border border-gray-300 dark:border-gray-700"
-          />
-          <button
-            onClick={() => {
-              setPreview(null);
-              setImage(null);
-            }}
-            className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full hover:bg-black transition"
-          >
-            ✕ Remover
-          </button>
+      {mediaList.length > 0 && (
+        <div className={`mt-3 grid gap-2 grid-cols-${Math.min(mediaList.length, 3)}`}>
+          {mediaList.map((m, i) => (
+            <div key={i} className="relative group">
+              {m.type === "video" ? (
+                <video src={m.url} controls className="w-full h-64 object-cover rounded-xl border dark:border-gray-700" />
+              ) : (
+                <img src={m.url} alt="" className="w-full h-64 object-cover rounded-xl border dark:border-gray-700" />
+              )}
+              <button
+                onClick={() => removeMedia(i)}
+                className="absolute top-2 right-2 bg-black/70 text-white rounded-full p-1 text-xs opacity-0 group-hover:opacity-100"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Ações */}
-      <div className="flex items-center gap-3 mt-3">
-        <label className="flex items-center gap-2 cursor-pointer px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
-          {uploading ? "⏳ Enviando..." : "📸 Adicionar imagem"}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-            className="hidden"
-            disabled={uploading}
-          />
-        </label>
+      <div className="flex items-center justify-between mt-4">
+        <div className="flex gap-4">
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 dark:text-gray-300 hover:text-orange-500">
+            <ImageIcon size={18} />
+            <span>{uploading ? "Enviando..." : "Imagem"}</span>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleMediaUpload}
+              disabled={uploading}
+            />
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 dark:text-gray-300 hover:text-orange-500">
+            <VideoIcon size={18} />
+            <span>Vídeo</span>
+            <input
+              type="file"
+              accept="video/*"
+              multiple
+              className="hidden"
+              onChange={handleMediaUpload}
+              disabled={uploading}
+            />
+          </label>
+        </div>
 
-        <button
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.97 }}
           onClick={publish}
-          className="px-4 py-2 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-full transition"
-          disabled={uploading || !text.trim()}
+          disabled={uploading || (!text.trim() && mediaList.length === 0)}
+          className={`flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-white shadow-md transition ${
+            uploading || (!text.trim() && mediaList.length === 0)
+              ? "bg-orange-300 cursor-not-allowed"
+              : "bg-orange-500 hover:bg-orange-600"
+          }`}
         >
-          {uploading ? "Enviando..." : "Publicar"}
-        </button>
+          <PawPrint size={16} />
+          Postar
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
 }

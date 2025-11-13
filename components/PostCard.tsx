@@ -1,108 +1,142 @@
 "use client";
 
-import React, { useState } from "react";
-import { Heart, MessageCircle, MoreHorizontal } from "lucide-react";
+import React from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { Heart, MessageCircle } from "lucide-react";
+import { useFeed } from "@/context/FeedContext";
+import PostMedia from "./PostMedia";
+
+// ✅ Tipagem precisa e compatível com PostMedia
+interface MediaItem {
+  id: string;
+  src: string;
+  type: "image" | "video";
+}
 
 interface PostCardProps {
   post: {
     id: string;
-    petName: string;
-    petAvatar: string;
-    content: string;
-    image?: string;
-    createdAt: string;
+    petId?: string;
+    petName?: string;
+    petAvatar?: string;
+    createdAt?: string;
+    content?: string;
+    media?: any[];
+    mediaType?: "image" | "video";
     likes?: number;
     comments?: number;
-    offline?: boolean;
-    tutorName?: string;
-    tutorAvatar?: string;
+    liked?: boolean;
   };
 }
 
+/**
+ * 🐾 PostCard — Componente visual e interativo para posts do feed.
+ * Corrigido para compatibilidade total de tipos e máxima estabilidade.
+ */
 export default function PostCard({ post }: PostCardProps) {
-  const [likes, setLikes] = useState(post.likes || 0);
-  const [liked, setLiked] = useState(false);
+  const { toggleLike } = useFeed();
 
-  const toggleLike = () => {
-    setLiked(!liked);
-    setLikes((prev) => (liked ? prev - 1 : prev + 1));
-  };
+  // ✅ Conversão precisa para o formato esperado por PostMedia
+  const mediaList = React.useMemo<MediaItem[]>(() => {
+    if (!post || !Array.isArray(post.media)) return [];
+
+    return post.media.map((m: any, index: number) => {
+      if (typeof m === "string") {
+        return {
+          id: `${post.id}-${index}`,
+          src: m,
+          type: post.mediaType || "image",
+        };
+      }
+      return {
+        id: `${post.id}-${index}`,
+        src: m.url || "",
+        type: m.type || "image",
+      };
+    });
+  }, [post]);
 
   return (
-    <article className="bg-white dark:bg-[#0d1a27] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm p-4 transition hover:shadow-md">
-      {/* Cabeçalho */}
-      <header className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <img
-            src={post.petAvatar || "/placeholder-pet.png"}
-            alt={post.petName}
-            className="w-12 h-12 rounded-full border border-gray-300 dark:border-gray-600 object-cover"
-          />
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-              @{post.petName}
-            </h3>
-            <span className="text-xs text-gray-500">{post.createdAt}</span>
-
-            {/* Tutor opcional */}
-            {post.tutorName && (
-              <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
-                👤 {post.tutorAvatar && (
-                  <img
-                    src={post.tutorAvatar}
-                    alt={post.tutorName}
-                    className="w-4 h-4 rounded-full object-cover"
-                  />
-                )}
-                Tutor: {post.tutorName}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <button className="p-2 text-gray-500 hover:text-teal-500 transition">
-          <MoreHorizontal className="w-5 h-5" />
-        </button>
-      </header>
-
-      {/* Conteúdo */}
-      <p className="text-gray-800 dark:text-gray-200 mb-3 leading-relaxed whitespace-pre-line">
-        {post.content}
-      </p>
-
-      {post.image && (
+    <motion.article
+      whileHover={{ scale: 1.01 }}
+      transition={{ type: "spring", stiffness: 250, damping: 20 }}
+      className="
+        bg-white/80 dark:bg-[#15283a]/80 
+        backdrop-blur-md border border-gray-200 dark:border-gray-700 
+        rounded-2xl shadow-sm p-4 sm:p-5 transition-all
+      "
+    >
+      {/* 🐾 Cabeçalho */}
+      <Link
+        href={`/pet/${
+          post.petId ||
+          post.petName?.toLowerCase()?.replace(/\s+/g, "-") ||
+          "pet"
+        }`}
+        className="flex items-center gap-3 mb-3 hover:opacity-90 transition"
+      >
         <img
-          src={post.image}
-          alt="Post"
-          className="w-full max-h-[500px] object-cover rounded-xl border border-gray-200 dark:border-gray-700 mb-3"
+          src={post?.petAvatar || "/placeholder-pet.png"}
+          alt={post?.petName || "Pet"}
+          className="w-12 h-12 rounded-full object-cover border-2 border-orange-200 dark:border-teal-700 shadow-sm"
         />
-      )}
+        <div>
+          <h3 className="font-semibold text-gray-800 dark:text-gray-100 leading-tight">
+            {post?.petName || "Pet Anônimo"}
+          </h3>
+          <p className="text-xs text-gray-400">{post?.createdAt}</p>
+        </div>
+      </Link>
 
-      {/* Ações */}
-      <footer className="flex items-center justify-between mt-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-        <button
-          onClick={toggleLike}
-          className={`flex items-center gap-1 text-sm transition ${
-            liked ? "text-teal-600" : "text-gray-500 hover:text-teal-600"
-          }`}
-        >
-          <Heart
-            className={`w-4 h-4 ${liked ? "fill-teal-600 text-teal-600" : ""}`}
-          />
-          {likes} curtidas
-        </button>
-
-        <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-teal-600 transition">
-          <MessageCircle className="w-4 h-4" />
-          {post.comments || 0} comentários
-        </button>
-      </footer>
-
-      {post.offline && (
-        <p className="text-xs text-orange-400 mt-2 italic">
-          ⚠️ Publicação pendente de sincronização
+      {/* 📝 Texto */}
+      {post?.content && (
+        <p className="text-gray-700 dark:text-gray-300 mb-3 text-[0.95rem] leading-relaxed whitespace-pre-wrap">
+          {post.content}
         </p>
       )}
-    </article>
+
+      {/* 🎬 Mídia */}
+      {mediaList.length > 0 && (
+        <div
+          className={`mt-2 mb-3 ${
+            mediaList.length > 1 ? "grid grid-cols-2 sm:grid-cols-3 gap-3" : ""
+          }`}
+        >
+          {/* ✅ Corrigido: envia items no formato correto */}
+          <PostMedia items={mediaList} />
+        </div>
+      )}
+
+      {/* 💬 Rodapé */}
+      <div
+        className="
+          flex items-center justify-between 
+          text-sm text-gray-500 dark:text-gray-400 mt-2 pt-2
+          border-t border-gray-200/50 dark:border-gray-700/50
+        "
+      >
+        {/* ❤️ Curtir */}
+        <button
+          onClick={() => toggleLike?.(post?.id)}
+          className={`flex items-center gap-1 transition ${
+            post?.liked ? "text-orange-500" : "hover:text-orange-500"
+          }`}
+          aria-label="Curtir"
+        >
+          <Heart
+            size={18}
+            className={`stroke-[2.2px] ${post?.liked ? "fill-orange-500" : ""}`}
+          />
+          <span>{post?.likes ?? 0}</span>
+        </button>
+
+        {/* 💬 Comentários */}
+        <div className="flex items-center gap-1">
+          <MessageCircle size={18} />
+          <span>{post?.comments ?? 0}</span>
+        </div>
+      </div>
+    </motion.article>
   );
 }

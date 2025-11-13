@@ -1,27 +1,39 @@
+// prisma/schema.prisma 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")  // Pooler (para uso no app)
+  directUrl = env("DIRECT_URL")    // Conexão direta (para migrações)
 }
 
 model User {
-  id        String    @id @default(cuid())
-  name      String?
-  email     String    @unique
-  password  String?
-  role      Role      @default(USER)
-  avatarUrl String?
-  city      String?
-  bio       String?
-  createdAt DateTime  @default(now())
-  accounts  Account[]
-  comments  Comment[]
-  pet       Pet?      @relation("UserPet")
-  posts     Post[]
-  sessions  Session[]
+  id                  String    @id @default(cuid())
+  name                String?
+  email               String    @unique
+  password            String?
+  role                Role      @default(USER)
+  avatarUrl           String?
+  city                String?
+  bio                 String?
+  cpf                 String?   @unique
+  phone               String?
+  address             String?
+  birthDate           DateTime?
+  privacy             Json?
+  verified            Boolean   @default(false)
+  addressComplement   String?
+  postalCode          String?
+  hasEcommerceAccess  Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+
+  accounts            Account[]
+  comments            Comment[]
+  pets                Pet[]     @relation("UserPets")
+  posts               Post[]
+  sessions            Session[]
 }
 
 model Pet {
@@ -34,11 +46,16 @@ model Pet {
   bio         String?
   description String?
   avatarUrl   String?
-  ownerId     String?  @unique
-  ownerEmail  String?  @unique
+  ownerId     String?
+  ownerEmail  String   @unique  // ✅ Novo campo: cada e-mail de tutor é único para um pet
   createdAt   DateTime @default(now())
-  owner       User?    @relation("UserPet", fields: [ownerId], references: [id])
+
+  owner       User?    @relation("UserPets", fields: [ownerId], references: [id])
   posts       Post[]
+
+  @@index([ownerId])
+  @@index([slug])
+  @@index([ownerEmail])
 }
 
 model Post {
@@ -50,8 +67,12 @@ model Post {
   likes     Int       @default(0)
   createdAt DateTime  @default(now())
   comments  Comment[]
+
   author    User      @relation(fields: [authorId], references: [id])
   pet       Pet?      @relation(fields: [petId], references: [id])
+
+  @@index([createdAt])
+  @@index([authorId])
 }
 
 model Comment {
@@ -60,8 +81,12 @@ model Comment {
   authorId  String
   content   String
   createdAt DateTime @default(now())
+
   author    User     @relation(fields: [authorId], references: [id])
   post      Post     @relation(fields: [postId], references: [id])
+
+  @@index([postId])
+  @@index([authorId])
 }
 
 model Sponsor {
@@ -71,6 +96,8 @@ model Sponsor {
   website   String?
   createdAt DateTime   @default(now())
   campaigns Campaign[]
+
+  @@index([name])
 }
 
 model Campaign {
@@ -82,7 +109,12 @@ model Campaign {
   budget    Float    @default(0)
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
+
   sponsor   Sponsor  @relation(fields: [sponsorId], references: [id])
+
+  @@index([sponsorId])
+  @@index([active])
+  @@index([createdAt])
 }
 
 model Account {
@@ -99,7 +131,11 @@ model Account {
   id_token          String?
   session_state     String?
   createdAt         DateTime @default(now())
+
   user              User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@unique([provider, providerAccountId])
 }
 
 model Session {
@@ -108,7 +144,10 @@ model Session {
   userId       String
   expires      DateTime
   createdAt    DateTime @default(now())
+
   user         User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 enum Role {

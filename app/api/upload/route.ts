@@ -1,42 +1,46 @@
 import { NextResponse } from "next/server";
 import path from "path";
-import { writeFile } from "fs/promises";
+import { writeFile, mkdir } from "fs/promises";
 import { randomUUID } from "crypto";
 
 /**
- * 🔹 Endpoint para upload de imagem local.
- * As imagens serão salvas em /public/uploads
- * e a URL pública será retornada.
+ * 🔹 Endpoint para upload de mídia (imagens e vídeos)
+ * As mídias são salvas em /public/uploads/pets e uma URL pública é retornada.
  */
 export async function POST(req: Request) {
   try {
-    // Recebe o formData
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
 
     if (!file) {
-      return NextResponse.json(
-        { error: "Nenhum arquivo enviado." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Nenhum arquivo enviado." }, { status: 400 });
     }
 
-    // Cria nome único para o arquivo
-    const fileExt = path.extname(file.name) || ".jpg";
-    const fileName = `${randomUUID()}${fileExt}`;
-    const filePath = path.join(process.cwd(), "public", "uploads", fileName);
+    // Cria pasta se não existir
+    const uploadDir = path.join(process.cwd(), "public", "uploads", "pets");
+    await mkdir(uploadDir, { recursive: true });
 
-    // Converte o arquivo para buffer e grava
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Gera nome único
+    const ext = path.extname(file.name) || ".dat";
+    const fileName = `${randomUUID()}${ext}`;
+    const filePath = path.join(uploadDir, fileName);
+
+    // Salva arquivo localmente
+    const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(filePath, buffer);
 
-    // Cria a URL pública
-    const url = `${process.env.NEXT_PUBLIC_BASE_URL || ""}/uploads/${fileName}`;
+    // Gera URL pública
+    const base =
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      process.env.VERCEL_URL ||
+      "http://localhost:3000";
+
+    const cleanBase = base.replace(/^https?:\/\//, "");
+    const url = `https://${cleanBase}/uploads/pets/${fileName}`;
 
     return NextResponse.json({ url });
-  } catch (error) {
-    console.error("Erro no upload:", error);
-    return NextResponse.json({ error: "Falha no upload da imagem." }, { status: 500 });
+  } catch (err) {
+    console.error("❌ Erro no upload:", err);
+    return NextResponse.json({ error: "Falha no upload da mídia." }, { status: 500 });
   }
 }

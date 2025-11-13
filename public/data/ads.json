@@ -1,0 +1,35 @@
+[
+  {
+    "id": "1",
+    "partnerName": "Premier",
+    "type": "banner",
+    "title": "Ração Linha Premier",
+    "description": "Nutrição completa e sabor irresistível para o seu Pet!",
+    "mediaUrl": "/anuncio/linha-premier.png",
+    "targetUrl": "https://premierpet.com.br",
+    "approved": true,
+    "createdAt": "2025-11-10T10:00:00Z"
+  },
+  {
+    "id": "2",
+    "partnerName": "Linha Organo Pets",
+    "type": "produto",
+    "title": "Suplementos e Vitaminas",
+    "description": "Fortaleça a imunidade e a vitalidade do seu Pet!.",
+    "mediaUrl": "/produtos/carossel-agrocave.mp4",
+    "targetUrl": "https://agrocave.com.br",
+    "approved": true,
+    "createdAt": "2025-11-10T09:00:00Z"
+  },
+  {
+    "id": "3",
+    "partnerName": "Mundo Pets",
+    "type": "video",
+    "title": "Rede Social para Pets",
+    "description": "Existe um novo mundo para quem ama Pets!",
+    "mediaUrl": "/videos/video-redesocial.mp4",
+    "targetUrl": "https://mundopets.com.br",
+    "approved": true,
+    "createdAt": "2025-11-09T20:00:00Z"
+  }
+]

@@ -1,155 +1,133 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Loader2, PawPrint } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import { useSession } from "next-auth/react";
 import Composer from "@/components/Composer";
-import PostCard from "@/components/feed/PostCard";
-
-interface Post {
-  id: string;
-  petName: string;
-  petAvatar: string;
-  content: string;
-  image?: string;
-  createdAt: string;
-  likes?: number;
-  comments?: number;
-  offline?: boolean;
-  tutorName?: string;   // 🧍 opcional: nome do tutor
-  tutorAvatar?: string; // 🧍 opcional: avatar do tutor
-}
+import FeedList from "@/components/FeedList";
+import FriendsCarousel from "@/components/FriendsCarousel";
+import { useFeed } from "@/context/FeedContext";
 
 export default function FeedPage() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState("");
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === "authenticated";
 
-  // 🐶 Pet logado (mock temporário)
-  const pet = {
-    name: "Rex",
-    avatarUrl: "/avatars/avatars-dog2.png",
-    tutorName: "Douglas",
-    tutorAvatar: "/avatars/tutor-douglas.png",
-  };
+  const { posts, addPost, clearFeed, toggleLike } = useFeed();
+  const loadedRef = useRef(false);
 
-  // 🔹 Dados de exemplo
-  const SAMPLE: Post[] = [
-    {
-      id: "1",
-      petName: "Rex",
-      petAvatar: "/avatars/avatars-dog2.png",
-      content: "Aproveitando o dia ensolarado no parque! ☀️🐾",
-      image: "/posts/rex-park.jpg",
-      createdAt: "há 2 horas",
-      likes: 5,
-      comments: 1,
-      tutorName: "Douglas",
-      tutorAvatar: "/avatars/tutor-douglas.png",
-    },
-    {
-      id: "2",
-      petName: "Luna",
-      petAvatar: "/avatars/avatars-cat1.png",
-      content: "Hora da soneca depois do petisco 😸💤",
-      image: "/posts/luna-nap.jpg",
-      createdAt: "há 4 horas",
-      likes: 8,
-      comments: 3,
-      tutorName: "Carla",
-      tutorAvatar: "/avatars/tutor-carla.png",
-    },
-  ];
-
-  // 🔹 Carrega posts da API ou cache local
+  // 🔹 Carrega posts do banco remoto (Neon)
   useEffect(() => {
     const loadPosts = async () => {
       try {
-        setLoading(true);
+        const res = await fetch("/api/posts", { cache: "no-store" });
+        const data = await res.json();
 
-        if (navigator.onLine) {
-          const res = await fetch("/api/posts");
-          const data = await res.json();
-
-          if (!res.ok) throw new Error(data.message);
-          setPosts(data.posts?.length ? data.posts : SAMPLE);
-          localStorage.setItem(
-            "mundo-pets-feed",
-            JSON.stringify(data.posts || SAMPLE)
-          );
-        } else {
-          const local = localStorage.getItem("mundo-pets-feed");
-          if (local) setPosts(JSON.parse(local));
-          else setPosts(SAMPLE);
+        if (data.success) {
+          clearFeed();
+          data.posts.forEach((p: any) => addPost(p));
         }
-      } catch (err: any) {
-        console.error("Erro ao carregar feed:", err);
-        setStatus("⚠️ Não foi possível carregar o feed.");
-        setPosts(SAMPLE);
-      } finally {
-        setLoading(false);
+      } catch (err) {
+        console.error("❌ Erro ao carregar posts:", err);
       }
     };
 
-    loadPosts();
-  }, []);
+    if (!loadedRef.current) {
+      loadedRef.current = true;
+      loadPosts();
+    }
 
-  // 🐾 Novo post criado
-  const handlePosted = (content: string, image?: string) => {
-    const newPost: Post = {
-      id: Date.now().toString(),
-      petName: pet.name,
-      petAvatar: pet.avatarUrl,
-      content,
-      image,
-      createdAt: "agora mesmo",
-      likes: 0,
-      comments: 0,
-      offline: !navigator.onLine,
-      tutorName: pet.tutorName,
-      tutorAvatar: pet.tutorAvatar,
-    };
+    // Atualização automática (a cada 15s)
+    const interval = setInterval(() => loadPosts(), 15000);
+    return () => clearInterval(interval);
+  }, [addPost, clearFeed]);
 
-    const updatedPosts = [newPost, ...posts];
-    setPosts(updatedPosts);
-    localStorage.setItem("mundo-pets-feed", JSON.stringify(updatedPosts));
-    setStatus("✅ Post publicado!");
+  // 🔹 Criação de novo post
+  const handleCreatePost = async (content: string, image?: File | string) => {
+    if (!isAuthenticated) {
+      alert("Você precisa estar logado para criar um post 🐾");
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("content", content);
+      if (image instanceof File) formData.append("photo", image);
+      else if (typeof image === "string") formData.append("photo", image);
+
+      const res = await fetch("/api/posts", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (data.success) {
+        addPost(data.data);
+      } else {
+        console.error("❌ Erro ao criar post:", data.message || data.error);
+      }
+    } catch (err) {
+      console.error("❌ Erro ao criar post:", err);
+    }
   };
 
-  if (loading)
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="animate-spin w-6 h-6 text-teal-600" />
-      </div>
-    );
-
   return (
-    <main className="max-w-2xl mx-auto mt-24 p-4 space-y-6">
-      <h1 className="text-2xl font-semibold flex items-center gap-2 mb-2">
-        <PawPrint className="w-5 h-5 text-teal-600" />
-        Feed do Mundo Pets
-      </h1>
+    <main
+      className="
+        flex-1 
+        max-w-3xl 
+        h-full 
+        overflow-y-auto 
+        custom-scroll 
+        px-6 py-8 
+        bg-gray-50 dark:bg-[#0d1b2a]
+        rounded-3xl
+        shadow-inner
+      "
+    >
+      <motion.h1
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="
+          text-2xl font-bold 
+          text-gray-800 dark:text-gray-100 
+          mb-8 text-center
+        "
+      >
+        🐾 Bem-vindo ao Mundo Pets!!!
+      </motion.h1>
 
-      {/* Criador de post */}
-      <Composer onPosted={handlePosted} pet={pet} />
+      {/* 🔹 Stories fixos */}
+      <div className="sticky top-0 z-20 bg-gray-50/80 dark:bg-[#0d1b2a]/80 backdrop-blur-md pb-3 rounded-xl">
+        <FriendsCarousel />
+      </div>
 
-      {/* Feed */}
-      {posts.length === 0 ? (
-        <p className="text-center text-gray-500 dark:text-gray-400 py-10">
-          Nenhuma publicação ainda. Que tal começar agora? 🐶
-        </p>
+      {/* 🔹 Criador de Post */}
+      {isAuthenticated ? (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="mb-8"
+        >
+          <Composer onPosted={handleCreatePost} />
+        </motion.div>
       ) : (
-        <div className="flex flex-col gap-4">
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} />
-          ))}
-        </div>
-      )}
-
-      {status && (
-        <p className="text-sm text-gray-600 dark:text-gray-300 mt-4 text-center">
-          {status}
+        <p className="text-center text-gray-500 dark:text-gray-400 my-6">
+          🔐 Faça login para compartilhar momentos do seu pet!
         </p>
       )}
+
+      {/* 🔹 Lista de Posts */}
+      <section className="space-y-8">
+        <FeedList
+          posts={posts.map((p: any) => ({
+            ...p,
+            petAvatar: p.petAvatar || "/placeholder-pet.png",
+            tutorAvatar:
+              "tutorAvatar" in p && p.tutorAvatar
+                ? p.tutorAvatar
+                : "/placeholder-avatar.png",
+          }))}
+          onLike={toggleLike}
+        />
+      </section>
     </main>
   );
 }

@@ -1,13 +1,13 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import Providers from "./providers";
+import { ThemeProvider } from "@/components/theme-provider"; // ✅ corrigido: nome e caminho
 import Navbar from "@/components/Navbar";
-import SideMenu from "@/components/SideMenu";
-import SidebarRight from "@/components/SidebarRight";
+import SessionWrapper from "@/components/SessionWrapper";
+import { FeedProvider } from "@/context/FeedContext"; // ✅ mantém o contexto de feed
 
 export const metadata: Metadata = {
-  title: "Mundo Pets 🌎",
-  description: "A rede social dos apaixonados por animais 🐾",
+  title: "Mundo Pets",
+  description: "Rede social para amantes de pets 🐾",
 };
 
 export default function RootLayout({
@@ -16,32 +16,29 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR">
-      <head>
-        <meta name="theme-color" content="#00b8b3" />
-        <link rel="icon" href="/logo-mundo-pets.png" />
-      </head>
+    <html lang="pt-BR" suppressHydrationWarning>
+      <body className="antialiased bg-background text-foreground transition-colors duration-300">
+        {/* 🔹 Provider de sessão para autenticação e contexto global */}
+        <SessionWrapper>
+          {/* 🔹 Provider de tema (modo claro/escuro) */}
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {/* 🔹 Provider de feed — garante acesso global a useFeed() */}
+            <FeedProvider>
+              {/* 🔹 Navbar fixa e translúcida */}
+              <Navbar />
 
-      <body className="bg-[var(--bg)] text-[var(--fg)] min-h-screen flex flex-col">
-        <Providers>
-          {/* 🐾 Navbar translúcida fixa */}
-          <Navbar />
-
-          <div className="app-grid container mt-[85px]">
-            {/* 🧭 Sidebar esquerda fixa */}
-            <aside className="sidebar-left-container">
-              <SideMenu />
-            </aside>
-
-            {/* 🐶 Feed central */}
-            <main className="flex flex-col gap-6">{children}</main>
-
-            {/* 📢 Sidebar direita (anúncios/amigos) */}
-            <aside className="sidebar-right sidebar-scroll">
-              <SidebarRight />
-            </aside>
-          </div>
-        </Providers>
+              {/* 🔹 Área principal — respeita altura da navbar */}
+              <main className="pt-[var(--navbar-height)] min-h-screen">
+                {children}
+              </main>
+            </FeedProvider>
+          </ThemeProvider>
+        </SessionWrapper>
       </body>
     </html>
   );
