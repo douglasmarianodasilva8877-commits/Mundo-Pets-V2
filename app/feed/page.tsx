@@ -1,133 +1,174 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { motion } from "framer-motion";
-import { useSession } from "next-auth/react";
-import Composer from "@/components/Composer";
-import FeedList from "@/components/FeedList";
-import FriendsCarousel from "@/components/FriendsCarousel";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useFeed } from "@/context/FeedContext";
+import FriendsCarousel from "@/components/FriendsCarousel";
+import PostBarPremium from "@/components/PostBarPremium";
+import ComposerModal from "@/components/feed/ComposerModal";
 
 export default function FeedPage() {
-  const { data: session, status } = useSession();
-  const isAuthenticated = status === "authenticated";
+  const { posts, loading, fetchPosts, loadMore, hasMore } = useFeed();
+  const [openComposer, setOpenComposer] = useState(false);
 
-  const { posts, addPost, clearFeed, toggleLike } = useFeed();
-  const loadedRef = useRef(false);
-
-  // 🔹 Carrega posts do banco remoto (Neon)
   useEffect(() => {
-    const loadPosts = async () => {
-      try {
-        const res = await fetch("/api/posts", { cache: "no-store" });
-        const data = await res.json();
-
-        if (data.success) {
-          clearFeed();
-          data.posts.forEach((p: any) => addPost(p));
-        }
-      } catch (err) {
-        console.error("❌ Erro ao carregar posts:", err);
-      }
-    };
-
-    if (!loadedRef.current) {
-      loadedRef.current = true;
-      loadPosts();
-    }
-
-    // Atualização automática (a cada 15s)
-    const interval = setInterval(() => loadPosts(), 15000);
-    return () => clearInterval(interval);
-  }, [addPost, clearFeed]);
-
-  // 🔹 Criação de novo post
-  const handleCreatePost = async (content: string, image?: File | string) => {
-    if (!isAuthenticated) {
-      alert("Você precisa estar logado para criar um post 🐾");
-      return;
-    }
-
-    try {
-      const formData = new FormData();
-      formData.append("content", content);
-      if (image instanceof File) formData.append("photo", image);
-      else if (typeof image === "string") formData.append("photo", image);
-
-      const res = await fetch("/api/posts", { method: "POST", body: formData });
-      const data = await res.json();
-
-      if (data.success) {
-        addPost(data.data);
-      } else {
-        console.error("❌ Erro ao criar post:", data.message || data.error);
-      }
-    } catch (err) {
-      console.error("❌ Erro ao criar post:", err);
-    }
-  };
+    fetchPosts({ reset: true });
+  }, []);
 
   return (
-    <main
-      className="
-        flex-1 
-        max-w-3xl 
-        h-full 
-        overflow-y-auto 
-        custom-scroll 
-        px-6 py-8 
-        bg-gray-50 dark:bg-[#0d1b2a]
-        rounded-3xl
-        shadow-inner
-      "
-    >
-      <motion.h1
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="
-          text-2xl font-bold 
-          text-gray-800 dark:text-gray-100 
-          mb-8 text-center
-        "
-      >
-        🐾 Bem-vindo ao Mundo Pets!!!
-      </motion.h1>
-
-      {/* 🔹 Stories fixos */}
-      <div className="sticky top-0 z-20 bg-gray-50/80 dark:bg-[#0d1b2a]/80 backdrop-blur-md pb-3 rounded-xl">
-        <FriendsCarousel />
+    <div className="w-full flex flex-col gap-6 py-6 pt-[var(--navbar-height)]">
+      
+      {/* CARROSSEL */}
+      <div className="w-full flex justify-center">
+        <div className="w-full max-w-[820px]">
+          <FriendsCarousel />
+        </div>
       </div>
 
-      {/* 🔹 Criador de Post */}
-      {isAuthenticated ? (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
-          className="mb-8"
-        >
-          <Composer onPosted={handleCreatePost} />
-        </motion.div>
-      ) : (
-        <p className="text-center text-gray-500 dark:text-gray-400 my-6">
-          🔐 Faça login para compartilhar momentos do seu pet!
-        </p>
-      )}
-
-      {/* 🔹 Lista de Posts */}
-      <section className="space-y-8">
-        <FeedList
-          posts={posts.map((p: any) => ({
-            ...p,
-            petAvatar: p.petAvatar || "/placeholder-pet.png",
-            tutorAvatar:
-              "tutorAvatar" in p && p.tutorAvatar
-                ? p.tutorAvatar
-                : "/placeholder-avatar.png",
-          }))}
-          onLike={toggleLike}
+      {/* BARRA PREMIUM */}
+      <div className="w-full max-w-[820px] mx-auto px-3">
+        <PostBarPremium
+          pet={{ name: "Douglas", avatar: "/placeholder-pet.png" }}
+          onOpen={() => setOpenComposer(true)}
         />
-      </section>
-    </main>
+      </div>
+
+      {/* MODAL */}
+      <ComposerModal
+        open={openComposer}
+        onOpenChange={setOpenComposer}
+        onPost={async () => fetchPosts({ reset: true })}
+        pet={{ name: "Douglas", avatar: "/placeholder-pet.png" }}
+      />
+
+      {/* FEED */}
+      <div className="w-full max-w-[820px] mx-auto px-3">
+        {loading && posts.length === 0 && (
+          <p className="text-gray-400 text-center">Carregando posts...</p>
+        )}
+
+        {!loading && posts.length === 0 && (
+          <p className="text-gray-500 text-center">Nenhum post encontrado.</p>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
+          {posts.map((item) => {
+            const { post, pet, tutor, commentsCount } = item;
+
+            const mediaArray = Array.isArray(post.media_urls)
+              ? post.media_urls
+              : post.media_urls
+              ? [post.media_urls]
+              : [];
+
+            const mediaList = mediaArray.map((m) =>
+              m.startsWith("/") ? m : `/${m}`
+            );
+
+            const createdAt = new Date(post.createdAt).toLocaleString("pt-BR");
+
+            return (
+              <article
+                key={post.id}
+                className="bg-white dark:bg-gray-900 shadow-md rounded-2xl p-4"
+              >
+                {/* HEADER */}
+                <div className="flex items-center gap-3 mb-3">
+                  <Image
+                    src={
+                      tutor?.avatar_url
+                        ? tutor.avatar_url.startsWith("/")
+                          ? tutor.avatar_url
+                          : `/${tutor.avatar_url}`
+                        : "/placeholder-pet.png"
+                    }
+                    width={50}
+                    height={50}
+                    alt={tutor?.name || "Tutor"}
+                    className="rounded-full object-cover"
+                  />
+
+                  <div>
+                    <p className="font-semibold">
+                      {pet?.name || tutor?.name || "Usuário"}
+                    </p>
+                    <p className="text-xs text-gray-500">{createdAt}</p>
+                  </div>
+                </div>
+
+                {/* TEXTO */}
+                {post.content && (
+                  <p className="mb-3 whitespace-pre-line text-[15px] leading-snug">
+                    {post.content}
+                  </p>
+                )}
+
+                {/* IMAGEM ÚNICA LEGACY */}
+                {post.image_url && (
+                  <div className="rounded-xl overflow-hidden mb-3">
+                    <img
+                      src={post.image_url.startsWith("/") ? post.image_url : `/${post.image_url}`}
+                      alt="Post media"
+                      className="w-full max-h-[380px] object-cover rounded-xl"
+                    />
+                  </div>
+                )}
+
+                {/* GALERIA */}
+                {mediaList.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+                    {mediaList.map((m, idx) => {
+                      const isVideo =
+                        m.includes(".mp4") ||
+                        m.includes(".mov") ||
+                        m.includes("video");
+
+                      return (
+                        <div
+                          key={idx}
+                          className="w-full rounded-xl overflow-hidden bg-gray-100 shadow-sm"
+                          style={{ height: 240 }}
+                        >
+                          {isVideo ? (
+                            <video
+                              src={m}
+                              controls
+                              className="w-full h-full object-cover rounded-xl"
+                            />
+                          ) : (
+                            <img
+                              src={m}
+                              alt={`Mídia ${idx + 1}`}
+                              className="w-full h-full object-cover rounded-xl"
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* FOOTER */}
+                <div className="mt-3 text-sm text-gray-500">
+                  ❤️ {post.likes ?? 0} curtidas • 💬 {commentsCount ?? 0} comentários
+                </div>
+              </article>
+            );
+          })}
+        </div>
+
+        {/* LOAD MORE */}
+        {hasMore && (
+          <div className="w-full mt-6 flex justify-center">
+            <button
+              onClick={loadMore}
+              className="px-4 py-2 bg-gray-200 dark:bg-gray-800 rounded-lg text-sm"
+            >
+              Carregar mais
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

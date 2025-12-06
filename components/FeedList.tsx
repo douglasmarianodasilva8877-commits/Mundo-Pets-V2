@@ -1,105 +1,69 @@
+// components/FeedList.tsx
 "use client";
 
 import PostMedia from "./PostMedia";
-import { Heart, MessageCircle } from "lucide-react";
+import Link from "next/link";
 
-interface FeedListProps {
-  posts: any[];
-  onLike?: (postId: string) => void;
+interface Post {
+  id: string;
+  content: string;
+  image_url?: string | null;
+  created_at: string;
+  author: {
+    id: string;
+    name: string;
+    avatar_url?: string | null;
+  };
 }
 
-export default function FeedList({ posts, onLike }: FeedListProps) {
+export default function FeedList({ posts }: { posts: Post[] }) {
   if (!posts || posts.length === 0) {
     return (
-      <p className="text-center text-gray-500 dark:text-gray-400 mt-6">
+      <p className="text-center text-gray-500 py-10">
         Nenhum post encontrado.
       </p>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-6">
       {posts.map((post) => (
-        <div
+        <article
           key={post.id}
-          className="
-            bg-white dark:bg-gray-900 
-            rounded-3xl shadow-md 
-            p-5 
-            transition-all duration-300 
-            hover:shadow-lg 
-            border border-gray-100 dark:border-gray-800
-          "
+          className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-4"
         >
-          {/* 🐾 Cabeçalho do post */}
-          <div className="flex items-center gap-4 mb-4">
+          {/* Header do autor */}
+          <div className="flex items-center gap-3 mb-3">
             <img
-              src={post.petAvatar}
-              alt={post.petName}
-              className="
-                w-12 h-12 
-                rounded-full 
-                object-cover 
-                ring-2 ring-teal-500/20 
-                shadow-sm
-              "
+              src={post.author.avatar_url || "/avatar-default.png"}
+              alt={post.author.name}
+              className="w-10 h-10 rounded-full object-cover"
             />
             <div>
-              <p className="font-semibold text-gray-900 dark:text-gray-100">
-                {post.petName}
+              <Link
+                href={`/profile/${post.author.id}`}
+                className="font-semibold text-gray-800 dark:text-gray-200"
+              >
+                {post.author.name}
+              </Link>
+              <p className="text-xs text-gray-500">
+                {new Date(post.created_at).toLocaleDateString("pt-BR")}
               </p>
-              <p className="text-sm text-gray-500">{post.createdAt}</p>
             </div>
           </div>
 
-          {/* 📝 Texto do post */}
-          {post.content && (
-            <p className="text-gray-800 dark:text-gray-200 mb-4 leading-relaxed">
-              {post.content}
-            </p>
-          )}
+          {/* Conteúdo */}
+          <p className="text-gray-800 dark:text-gray-300 mb-3 whitespace-pre-line">
+            {post.content}
+          </p>
 
-          {/* 🎬 Imagens ou Vídeos */}
-          {post.media && post.media.length > 0 && (
-            <div
-              className="
-                mt-4 
-                overflow-hidden 
-                rounded-2xl 
-                bg-white/30 dark:bg-gray-800/30 
-                backdrop-blur-sm 
-                p-2
-              "
-            >
-              <PostMedia items={post.media} />
+          {/* Imagem / Carrossel */}
+          {post.image_url && (
+            <div className="rounded-lg overflow-hidden border border-gray-300 dark:border-gray-700">
+              <PostMedia src={post.image_url} />
             </div>
           )}
-
-          {/* 💬 Rodapé — ações */}
-          <div
-            className="
-              flex justify-between items-center 
-              mt-4 pt-3 
-              border-t border-gray-100 dark:border-gray-800 
-              text-gray-600 dark:text-gray-400 text-sm
-            "
-          >
-            <button
-              onClick={() => onLike?.(post.id)}
-              className={`flex items-center gap-1 transition ${
-                post?.liked ? "text-orange-500" : "hover:text-orange-500"
-              }`}
-            >
-              <Heart size={18} className="stroke-[2px]" />
-              <span>{post.likes ?? 0}</span>
-            </button>
-
-            <div className="flex items-center gap-1">
-              <MessageCircle size={18} />
-              <span>{post.comments ?? 0}</span>
-            </div>
-          </div>
-        </div>
+        </article>
       ))}
     </div>
   );

@@ -2,11 +2,7 @@
 
 import React, { useState } from "react";
 
-interface CreatePostProps {
-  onPostCreated?: (post: any) => void;
-}
-
-export default function CreatePost({ onPostCreated }: CreatePostProps) {
+export default function CreatePost() {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -15,21 +11,20 @@ export default function CreatePost({ onPostCreated }: CreatePostProps) {
     if (!content.trim()) return;
 
     setLoading(true);
+
     try {
-      const response = await fetch("/api/posts", {
+      const res = await fetch("/api/create-post", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, mediaUrls: [] }),
       });
 
-      if (!response.ok) throw new Error("Erro ao criar post");
-      const newPost = await response.json();
+      if (!res.ok) throw new Error("Erro ao criar post");
 
       setContent("");
-      onPostCreated?.(newPost);
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao criar post 😢");
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao criar post");
     } finally {
       setLoading(false);
     }
@@ -44,13 +39,13 @@ export default function CreatePost({ onPostCreated }: CreatePostProps) {
         placeholder="O que seu pet está aprontando hoje? 🐾"
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        className="p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-400"
+        className="p-2 border border-gray-300 rounded-lg focus:outline-none"
         rows={3}
       />
       <button
         type="submit"
         disabled={loading}
-        className="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 rounded-lg transition-all"
+        className="bg-pink-500 text-white py-2 px-4 rounded-lg"
       >
         {loading ? "Postando..." : "Publicar"}
       </button>

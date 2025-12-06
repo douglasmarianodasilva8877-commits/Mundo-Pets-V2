@@ -1,147 +1,99 @@
+// app/api/posts/route.ts
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { createPost, listPosts } from "@/lib/db/queries/posts";
+import { verifyToken } from "@/lib/auth/jwt";
 
 /**
- * 🔹 GET — Retorna lista de posts (com pet, tutor e contagem de comentários)
- */
-export async function GET() {
-  try {
-    const posts = await prisma.post.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        pet: true,
-        author: true,
-        _count: { select: { comments: true } },
-      },
-    });
-
-    const formatted = posts.map((p) => ({
-      id: p.id,
-      petName: p.pet?.name || "Pet Anônimo 🐾",
-      petAvatar: p.pet?.avatarUrl || "/placeholder-pet.png",
-      content: p.content ?? "",
-      image: p.imageUrl ?? null,
-      createdAt: new Date(p.createdAt).toLocaleString("pt-BR", {
-        hour: "2-digit",
-        minute: "2-digit",
-        day: "2-digit",
-        month: "short",
-      }),
-      likes: p.likes ?? 0,
-      comments: p._count?.comments ?? 0,
-      tutorName: p.author?.name || "Tutor não identificado",
-      tutorAvatar: p.author?.avatarUrl || "/placeholder-avatar.png",
-    }));
-
-    return NextResponse.json({ success: true, posts: formatted });
-  } catch (err: any) {
-    console.error("❌ [GET /api/posts] Erro ao buscar posts:", err);
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Erro ao buscar posts.",
-        details: err.message || err,
-      },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * 🔹 POST — Cria novo post (com suporte a imagem base64)
+ * POST /api/posts
+ * - FormData: content, petId (optional), media[] (files)
+ * - Auth: Authorization: Bearer <jwt>
+ * Returns created post (with joins) for immediate feed update
  */
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const authHeader = req.headers.get("authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
+    if (!token) return NextResponse.json({ success: false, message: "missing token" }, { status: 401 });
 
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { success: false, message: "Não autenticado." },
-        { status: 401 }
-      );
+    const payload = verifyToken(token);
+    if (!payload?.sub) return NextResponse.json({ success: false, message: "invalid token" }, { status: 401 });
+
+    const userId = payload.sub;
+
+    const contentType = req.headers.get("content-type") || "";
+    // accept both JSON and multipart
+    let content: string | null = null;
+    let petId: string | null = null;
+    let files: File[] = [];
+
+    if (contentType.includes("multipart/form-data")) {
+      const form = await req.formData();
+      content = (form.get("content") as string) ?? null;
+      petId = (form.get("petId") as string) ?? null;
+      const raw = form.getAll("media");
+      files = raw.filter((r) => r instanceof File) as File[];
+    } else {
+      const body = await req.json();
+      content = body.content ?? null;
+      petId = body.petId ?? null;
+      // no files in JSON
     }
 
-    // 🔍 Localiza o usuário autenticado
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: "Usuário não encontrado." },
-        { status: 404 }
-      );
-    }
-
-    const formData = await req.formData();
-    const content = (formData.get("content") as string) ?? "";
-    const file = formData.get("photo") as File | null;
-
-    // 🐾 Localiza o pet do tutor logado
-    const pet = await prisma.pet.findFirst({
-      where: { ownerId: user.id }, // ✅ corrigido (antes usava ownerEmail, que não existe no schema)
-    });
-
-    if (!pet) {
-      return NextResponse.json(
-        { success: false, message: "Pet não encontrado para este tutor." },
-        { status: 404 }
-      );
-    }
-
-    // 📸 Converte imagem para base64 (opcional)
+    // upload files to Supabase storage if any
+    const supabase = createClient();
+    const mediaUrls: string[] = [];
     let imageUrl: string | null = null;
-    if (file) {
+
+    for (const file of files) {
+      const ext = (file.name.split(".").pop() || "bin").toLowerCase();
+      const path = `posts/${Date.now()}-${crypto.randomUUID()}.${ext}`;
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      imageUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
+
+      const { error: uploadErr } = await supabase.storage.from("posts").upload(path, buffer, { contentType: file.type });
+      if (uploadErr) {
+        console.warn("Supabase upload failed:", uploadErr);
+        continue;
+      }
+      const { data: publicUrl } = supabase.storage.from("posts").getPublicUrl(path);
+      const url = publicUrl.publicUrl;
+      mediaUrls.push(url);
     }
 
-    // ✅ Cria o post no banco
-    const post = await prisma.post.create({
-      data: {
-        content,
-        imageUrl,
-        petId: pet.id,
-        authorId: user.id,
-      },
-      include: {
-        pet: true,
-        author: true,
-        _count: { select: { comments: true } },
-      },
+    // if single image only, set imageUrl to first media for legacy support
+    if (mediaUrls.length === 1) imageUrl = mediaUrls[0];
+
+    // create post in DB
+    const post = await createPost({
+      authorId: userId,
+      petId: petId ?? null,
+      content,
+      mediaUrls: mediaUrls.length > 0 ? mediaUrls : null,
+      imageUrl: imageUrl ?? null,
     });
 
-    const formatted = {
-      id: post.id,
-      petName: post.pet?.name || "Pet Anônimo 🐾",
-      petAvatar: post.pet?.avatarUrl || "/placeholder-pet.png",
-      content: post.content,
-      image: post.imageUrl,
-      createdAt: new Date(post.createdAt).toLocaleString("pt-BR", {
-        hour: "2-digit",
-        minute: "2-digit",
-        day: "2-digit",
-        month: "short",
-      }),
-      likes: post.likes ?? 0,
-      comments: post._count?.comments ?? 0,
-      tutorName: post.author?.name || "Tutor não identificado",
-      tutorAvatar: post.author?.avatarUrl || "/placeholder-avatar.png",
-    };
-
-    return NextResponse.json({ success: true, data: formatted });
+    // return created post raw (client will fetch feed/ transform)
+    return NextResponse.json({ success: true, post }, { status: 201 });
   } catch (err: any) {
-    console.error("❌ [POST /api/posts] Erro ao criar post:", err);
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Erro ao criar post.",
-        details: err.message || err,
-      },
-      { status: 500 }
-    );
+    console.error("❌ POST /api/posts error:", err);
+    return NextResponse.json({ success: false, message: err?.message ?? "Erro interno" }, { status: 500 });
+  }
+}
+
+/** optional GET to list recent posts (simple) */
+export async function GET(req: Request) {
+  try {
+    const url = new URL(req.url);
+    const limit = Number(url.searchParams.get("limit") ?? "20");
+    const cursor = url.searchParams.get("cursor") ?? null;
+
+    const { items, nextCursor } = await listPosts(limit, cursor);
+    return NextResponse.json({ success: true, items, nextCursor });
+  } catch (err: any) {
+    console.error("❌ GET /api/posts error:", err);
+    return NextResponse.json({ success: false, message: err?.message ?? "Erro" }, { status: 500 });
   }
 }

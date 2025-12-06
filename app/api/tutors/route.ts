@@ -1,4 +1,5 @@
 // app/api/tutors/route.ts
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 
 let tutors: any[] = [];

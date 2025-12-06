@@ -1,3 +1,4 @@
+// app/api/auth/[...nextauth]/route.ts
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
@@ -12,16 +13,17 @@ const handler = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Senha", type: "password" },
       },
+
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // Tipagem explícita do usuário com pets
-        let user: (User & { pets: any[] }) | null = await prisma.user.findUnique({
-          where: { email: credentials.email },
-          include: { pets: true },
-        });
+        let user: (User & { pets: any[] }) | null =
+          await prisma.user.findUnique({
+            where: { email: credentials.email },
+            include: { pets: true },
+          });
 
-        // 🆕 Cria usuário e pet se não existir
+        // 🆕 Criar usuário automaticamente
         if (!user) {
           const hashedPassword = await bcrypt.hash(credentials.password, 10);
 
@@ -36,7 +38,7 @@ const handler = NextAuth({
                   name: "Meu Pet",
                   slug: `pet-${Date.now()}`,
                   species: "Desconhecido",
-                  ownerEmail: credentials.email, // ✅ adiciona campo obrigatório
+                  ownerEmail: credentials.email,
                 },
               },
             },
@@ -45,12 +47,18 @@ const handler = NextAuth({
 
           console.log("✅ Novo usuário criado:", user.email);
         } else {
-          // 🔒 Valida senha
+          // 🔒 Validação de senha
           if (!user.password) return null;
-          const isValid = await bcrypt.compare(credentials.password, user.password);
-          if (!isValid) return null;
+
+          const valid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!valid) return null;
         }
 
+        // 🎯 Retorna apenas dados seguros
         return {
           id: user.id,
           name: user.name,
@@ -63,6 +71,7 @@ const handler = NextAuth({
 
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
+
   pages: {
     signIn: "/login",
   },
@@ -72,10 +81,9 @@ const handler = NextAuth({
       if (user) token.id = user.id;
       return token;
     },
+
     async session({ session, token }) {
-      if (token?.id) {
-        session.user.id = String(token.id);
-      }
+      if (token?.id) session.user.id = String(token.id);
       return session;
     },
   },

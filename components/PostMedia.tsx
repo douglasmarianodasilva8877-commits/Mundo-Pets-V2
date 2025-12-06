@@ -1,129 +1,206 @@
+// components/PostMedia.tsx
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
-interface MediaItem {
-  id: number | string;
-  type: "image" | "video";
-  src: string;
+type MediaObj = {
+  type?: "image" | "video";
+  url?: string;
+  src?: string;
+  id?: string;
+  blurhash?: string;
+};
+
+type Item = { id?: string; src: string; type?: "image" | "video" };
+
+function safeUrl(url?: string | null, fallback = "/placeholder-pet.png") {
+  if (!url) return fallback;
+  if (url.startsWith("/mnt/") || url.includes("/mnt/data")) return fallback;
+  if (url.startsWith("data:")) return url;
+  if (url.startsWith("/")) return url;
+
+  try {
+    const parsed = new URL(url);
+    if (["http:", "https:"].includes(parsed.protocol)) return url;
+    return fallback;
+  } catch {
+    return fallback;
+  }
 }
 
-interface PostMediaProps {
-  items: MediaItem[];
-}
+export default function PostMedia({
+  items,
+}: {
+  items: (string | Item | MediaObj)[];
+}) {
+  const list: Item[] = useMemo(
+    () =>
+      (items as any[]).map((it: any, i: number) =>
+        typeof it === "string"
+          ? {
+              id: `${i}`,
+              src: it,
+              type:
+                it.endsWith(".mp4") || it.includes("video") ? "video" : "image",
+            }
+          : {
+              id: it.id ?? `${i}`,
+              src: it.src ?? it.url ?? "",
+              type:
+                it.type ??
+                (it.src?.includes(".mp4") || it.url?.includes(".mp4")
+                  ? "video"
+                  : "image"),
+            }
+      ),
+    [items]
+  );
 
-export default function PostMedia({ items }: PostMediaProps) {
-  const [current, setCurrent] = useState(0);
+  const sanitized = useMemo(
+    () =>
+      list
+        .map((it) => ({
+          ...it,
+          src: safeUrl(it.src),
+        }))
+        .filter((it) => Boolean(it.src)),
+    [list]
+  );
 
-  const next = () => setCurrent((prev) => (prev + 1) % items.length);
-  const prev = () => setCurrent((prev) => (prev - 1 + items.length) % items.length);
+  const [index, setIndex] = useState(0);
+  const trackRef = useRef<HTMLDivElement | null>(null);
 
-  const isMultiple = items.length > 1;
+  if (sanitized.length === 0) return null;
+
+  const scrollToIndex = (i: number) => {
+    const el = trackRef.current;
+    if (!el) return setIndex(i);
+    const child = el.children[i] as HTMLElement;
+    if (child) child.scrollIntoView({ behavior: "smooth", inline: "center" });
+    setIndex(i);
+  };
+
+  const goNext = () => scrollToIndex((index + 1) % sanitized.length);
+  const goPrev = () =>
+    scrollToIndex((index - 1 + sanitized.length) % sanitized.length);
+
+  if (sanitized.length === 1) {
+    const it = sanitized[0];
+    return (
+      <div className="w-full rounded-xl overflow-hidden post-card">
+        {it.type === "video" ? (
+          <video
+            src={it.src}
+            controls
+            className="w-full h-auto max-h-[520px] object-cover rounded-xl"
+            onError={(e) =>
+              ((e.currentTarget as HTMLVideoElement).style.display = "none")
+            }
+          />
+        ) : (
+          <img
+            src={it.src}
+            alt=""
+            className="w-full h-auto max-h-[520px] object-cover rounded-xl"
+            loading="lazy"
+            onError={(e) => {
+              const t = e.currentTarget as HTMLImageElement;
+              if (t.src !== "/placeholder-pet.png")
+                t.src = "/placeholder-pet.png";
+            }}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div
-      className="
-        relative 
-        rounded-3xl 
-        overflow-hidden 
-        shadow-md 
-        bg-gray-100 dark:bg-gray-800 
-        transition-all 
-        duration-300 
-        hover:shadow-lg
-      "
-      style={{
-        aspectRatio: "4 / 3",
-        width: "100%",
-        maxHeight: 460,
-      }}
-    >
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={items[current].id}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.4 }}
-          className="w-full h-full"
-        >
-          {items[current].type === "video" ? (
-            <video
-              src={items[current].src}
-              controls
-              playsInline
-              className="
-                w-full h-full 
-                object-cover 
-                rounded-3xl 
-                transition-all 
-                duration-500 
-                hover:scale-[1.01]
-              "
-            />
-          ) : (
-            <img
-              src={items[current].src}
-              alt={`post-media-${current}`}
-              className="
-                w-full h-full 
-                object-cover 
-                rounded-3xl 
-                transition-all 
-                duration-500 
-                hover:scale-[1.01]
-              "
-            />
-          )}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Navegação se houver várias mídias */}
-      {isMultiple && (
-        <>
-          <button
-            onClick={prev}
-            className="
-              absolute top-1/2 left-3 -translate-y-1/2 
-              bg-black/40 hover:bg-black/60 
-              text-white 
-              rounded-full 
-              w-8 h-8 
-              flex items-center justify-center 
-              transition-colors duration-300
-            "
+    <div className="relative w-full">
+      {/* TRACK */}
+      <div
+        ref={trackRef}
+        className="carousel-track flex gap-3 overflow-x-auto no-scrollbar py-2 px-2"
+        role="list"
+        aria-label="Mídias do post"
+        style={{ scrollBehavior: "smooth", alignItems: "center" }}
+      >
+        {sanitized.map((it, i) => (
+          <div
+            key={it.id ?? i}
+            role="listitem"
+            onClick={() => scrollToIndex(i)}
+            className="carousel-item flex-shrink-0 rounded-xl overflow-hidden shadow-sm cursor-pointer"
+            style={{
+              width: 220,
+              height: Math.round(220 * 1.2),
+              maxWidth: "40vw",
+              maxHeight: 520,
+              background: "#f3f4f6",
+            }}
           >
-            ‹
-          </button>
-          <button
-            onClick={next}
-            className="
-              absolute top-1/2 right-3 -translate-y-1/2 
-              bg-black/40 hover:bg-black/60 
-              text-white 
-              rounded-full 
-              w-8 h-8 
-              flex items-center justify-center 
-              transition-colors duration-300
-            "
-          >
-            ›
-          </button>
-
-          {/* Indicadores (bolinhas) */}
-          <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1">
-            {items.map((_, i) => (
-              <span
-                key={i}
-                className={`w-2.5 h-2.5 rounded-full transition-all ${
-                  i === current ? "bg-white" : "bg-white/40"
-                }`}
+            {it.type === "video" ? (
+              <video
+                src={it.src}
+                controls
+                className="w-full h-full object-cover"
+                onError={(e) =>
+                  ((e.currentTarget as HTMLVideoElement).style.display = "none")
+                }
               />
-            ))}
+            ) : (
+              <img
+                src={it.src}
+                alt=""
+                className="w-full h-full object-cover"
+                loading="lazy"
+                onError={(e) => {
+                  const t = e.currentTarget as HTMLImageElement;
+                  if (t.src !== "/placeholder-pet.png")
+                    t.src = "/placeholder-pet.png";
+                }}
+              />
+            )}
           </div>
-        </>
-      )}
+        ))}
+      </div>
+
+      {/* SETAS */}
+      <button
+        type="button"
+        aria-label="Anterior"
+        onClick={goPrev}
+        className="carousel-arrow carousel-arrow-left"
+        style={{ zIndex: 30 }}
+      >
+        <ChevronLeft size={18} />
+      </button>
+
+      <button
+        type="button"
+        aria-label="Próximo"
+        onClick={goNext}
+        className="carousel-arrow carousel-arrow-right"
+        style={{ zIndex: 30 }}
+      >
+        <ChevronRight size={18} />
+      </button>
+
+      {/* INDICADORES */}
+      <div className="mt-3 flex items-center justify-center gap-2">
+        {sanitized.map((_, i) => (
+          <button
+            key={i}
+            aria-label={`Ir para mídia ${i + 1}`}
+            onClick={() => scrollToIndex(i)}
+            className={`w-2 h-2 rounded-full transition-transform ${
+              i === index
+                ? "scale-110 bg-teal-600"
+                : "bg-gray-300 dark:bg-gray-600"
+            }`}
+          />
+        ))}
+      </div>
     </div>
   );
 }

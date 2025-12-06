@@ -1,37 +1,46 @@
+// context/FeedContext.tsx
 "use client";
 
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-} from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from "react";
 
-type Post = {
+type MediaItem = { type: "image" | "video"; url: string; blurhash?: string };
+type APIItem = {
+  post: {
+    id: string;
+    content?: string | null;
+    media?: MediaItem[] | null;
+    createdAt: string;
+    likes?: number | null;
+  };
+  pet?: { id?: string; name?: string; avatar_url?: string | null } | null;
+  tutor?: { id?: string; name?: string; avatar_url?: string | null } | null;
+  commentsCount?: number | null;
+};
+
+export type Post = {
   id: string;
-  petName: string;
-  petAvatar: string;
-  content: string;
-  media?: string; // imagem ou vídeo
-  mediaType?: "image" | "video";
+  content?: string | null;
+  media: MediaItem[];
   createdAt: string;
   likes: number;
   comments: number;
+  petName?: string | null;
+  petAvatar?: string | null;
+  tutorName?: string | null;
+  tutorAvatar?: string | null;
   liked?: boolean;
   offline?: boolean;
 };
 
-type GroupedPost = {
-  petName: string;
-  petAvatar: string;
-  posts: Post[];
-};
-
 type FeedContextType = {
   posts: Post[];
-  groupedPosts: GroupedPost[];
-  addPost: (post: Omit<Post, "id" | "createdAt">) => Promise<void>;
+  groupedPosts: any[];
+  loading: boolean;
+  error: string | null;
+  hasMore: boolean;
+  fetchPosts: (reset?: boolean) => Promise<void>;
+  loadMore: () => Promise<void>;
+  addPost: (apiPost: any) => Promise<void>;
   toggleLike: (postId: string) => void;
   addComment: (postId: string) => void;
   clearFeed: () => void;
@@ -39,178 +48,192 @@ type FeedContextType = {
 
 const FeedContext = createContext<FeedContextType | undefined>(undefined);
 
-export function FeedProvider({ children }: { children: ReactNode }) {
+const STORAGE_KEY = "mundo-pets-feed-v2";
+const PAGE_LIMIT = 10;
+
+export function FeedProvider({ children }: { children: React.ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([]);
-  const [groupedPosts, setGroupedPosts] = useState<GroupedPost[]>([]);
+  const [groupedPosts, setGroupedPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
 
-  // 🔹 Agrupa posts por pet
-  const groupPostsByPet = (posts: Post[]): GroupedPost[] => {
-    const grouped: Record<string, Post[]> = {};
+  const fetchingRef = useRef(false);
+  const loadedRef = useRef(false);
 
-    posts.forEach((post) => {
-      const key = post.petName || "Desconhecido";
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(post);
-    });
+  const transformApiItem = (it: APIItem): Post => {
+    const p = it.post;
+    const mediaArr: MediaItem[] = Array.isArray(p.media) ? p.media : [];
 
-    return Object.entries(grouped).map(([petName, petPosts]) => ({
+    return {
+      id: p.id,
+      content: p.content ?? null,
+      createdAt: p.createdAt,
+      media: mediaArr,
+      likes: p.likes ?? 0,
+      comments: it.commentsCount ?? 0,
+      petName: it.pet?.name ?? null,
+      petAvatar: it.pet?.avatar_url ?? null,
+      tutorName: it.tutor?.name ?? null,
+      tutorAvatar: it.tutor?.avatar_url ?? null,
+      liked: false,
+      offline: false,
+    };
+  };
+
+  const persist = useCallback((list: Post[], nextCursor: string | null) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ posts: list, cursor: nextCursor }));
+    } catch {}
+  }, []);
+
+  const loadFromStorage = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const fetchPosts = useCallback(
+    async (reset = false) => {
+      if (fetchingRef.current) return;
+      fetchingRef.current = true;
+      setLoading(true);
+      setError(null);
+
+      try {
+        const currentCursor = reset ? null : cursor;
+        const params = new URLSearchParams();
+        params.set("limit", String(PAGE_LIMIT));
+        if (currentCursor) params.set("cursor", currentCursor);
+
+        const res = await fetch(`/api/feed?${params.toString()}`, { cache: "no-store" });
+        const json = await res.json();
+        const items: APIItem[] = json.items ?? [];
+        const nextCursor: string | null = json.nextCursor ?? null;
+
+        const transformed = items.map(transformApiItem);
+        const finalList = reset ? transformed : [...posts, ...transformed];
+
+        setPosts(finalList);
+        setCursor(nextCursor);
+        setHasMore(Boolean(nextCursor));
+        persist(finalList, nextCursor);
+      } catch (err) {
+        setError("Erro ao carregar feed");
+        const saved = loadFromStorage();
+        if (saved?.posts) {
+          setPosts(saved.posts);
+          setCursor(saved.cursor ?? null);
+          setHasMore(Boolean(saved.cursor));
+        }
+      } finally {
+        fetchingRef.current = false;
+        setLoading(false);
+      }
+    },
+    [cursor, posts, persist, loadFromStorage]
+  );
+
+  useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+    const saved = loadFromStorage();
+    if (saved?.posts) {
+      setPosts(saved.posts);
+      setCursor(saved.cursor ?? null);
+      setHasMore(Boolean(saved.cursor));
+    }
+    fetchPosts(true);
+  }, []);
+
+  const groupPostsByPet = useCallback((list: Post[]) => {
+    const map = new Map();
+    for (const p of list) {
+      const key = p.petName ?? p.tutorName ?? "Desconhecido";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(p);
+    }
+    return Array.from(map.entries()).map(([petName, posts]) => ({
       petName,
-      petAvatar: petPosts[0]?.petAvatar || "",
-      posts: petPosts.sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      ),
+      petAvatar: posts[0]?.petAvatar ?? null,
+      posts,
     }));
-  };
+  }, []);
 
-  // 🔹 Função para buscar posts
-  const fetchPosts = async () => {
-    try {
-      if (navigator.onLine) {
-        const res = await fetch("/api/posts");
-        const data = await res.json();
-
-        if (data.success && Array.isArray(data.posts)) {
-          // Garante compatibilidade com vídeos e imagens
-          const formatted = data.posts.map((p: any) => ({
-            ...p,
-            media: p.media || p.image || "",
-            mediaType: p.mediaType || (p.image?.endsWith(".mp4") ? "video" : "image"),
-          }));
-
-          setPosts(formatted);
-          localStorage.setItem("mundo-pets-feed", JSON.stringify(formatted));
-        } else {
-          console.warn("⚠️ Erro ao buscar posts:", data.message);
-        }
-      } else {
-        console.warn("⚠️ Offline — carregando posts locais.");
-        const saved = localStorage.getItem("mundo-pets-feed");
-        if (saved) setPosts(JSON.parse(saved));
-      }
-    } catch (err) {
-      console.error("❌ Erro ao carregar posts:", err);
-      const saved = localStorage.getItem("mundo-pets-feed");
-      if (saved) setPosts(JSON.parse(saved));
-    }
-  };
-
-  // 🔹 Carrega posts apenas uma vez
   useEffect(() => {
-    fetchPosts();
-  }, []); // ✅ Executa apenas uma vez
-
-  // 🔹 Atualiza cache local e grupos sempre que o feed muda
-  useEffect(() => {
-    localStorage.setItem("mundo-pets-feed", JSON.stringify(posts));
     setGroupedPosts(groupPostsByPet(posts));
-  }, [posts]);
+  }, [posts, groupPostsByPet]);
 
-  // ➕ Criar post (salva no Neon ou localmente se offline)
-  const addPost = async (newPost: Omit<Post, "id" | "createdAt">) => {
-    try {
-      if (navigator.onLine) {
-        const formData = new FormData();
-        formData.append("content", newPost.content);
+  const loadMore = useCallback(async () => {
+    if (!hasMore) return;
+    await fetchPosts();
+  }, [hasMore, fetchPosts]);
 
-        if (newPost.media && typeof newPost.media === "string") {
-          const blob = await fetch(newPost.media).then((r) => r.blob());
-          formData.append(
-            newPost.mediaType === "video" ? "video" : "photo",
-            blob,
-            newPost.mediaType === "video" ? "upload.mp4" : "upload.jpg"
-          );
-        }
-
-        const res = await fetch("/api/posts", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await res.json();
-
-        if (data.success && data.data) {
-          setPosts((prev) => [data.data, ...prev]);
-        } else {
-          console.warn("⚠️ Erro ao salvar post:", data.message);
-          const offlinePost: Post = {
-            ...newPost,
-            id: Date.now().toString(),
-            createdAt: "Offline",
-            likes: 0,
-            comments: 0,
-            offline: true,
-          };
-          setPosts((prev) => [offlinePost, ...prev]);
-        }
-      } else {
-        console.warn("📴 Offline — salvando post localmente.");
-        const offlinePost: Post = {
-          ...newPost,
-          id: Date.now().toString(),
-          createdAt: "Offline",
-          likes: 0,
-          comments: 0,
-          offline: true,
-        };
-        setPosts((prev) => [offlinePost, ...prev]);
-      }
-    } catch (err) {
-      console.error("❌ Erro ao adicionar post:", err);
-      const offlinePost: Post = {
-        ...newPost,
-        id: Date.now().toString(),
-        createdAt: "Erro local",
-        likes: 0,
-        comments: 0,
-        offline: true,
+  const addPost = useCallback(
+    async (apiPost: any) => {
+      if (!apiPost) return;
+      const normalized: APIItem = {
+        post: {
+          id: apiPost.id,
+          content: apiPost.content,
+          media: apiPost.media ?? [],
+          createdAt: apiPost.createdAt ?? new Date().toISOString(),
+          likes: apiPost.likesCount ?? 0,
+        },
+        pet: apiPost.pet ?? null,
+        tutor: apiPost.author ?? null,
+        commentsCount: 0,
       };
-      setPosts((prev) => [offlinePost, ...prev]);
-    }
-  };
 
-  // ❤️ Curtir/Descurtir post (local)
-  const toggleLike = (postId: string) => {
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === postId
-          ? { ...p, likes: p.likes + (p.liked ? -1 : 1), liked: !p.liked }
-          : p
-      )
-    );
-  };
+      const newPost = transformApiItem(normalized);
+      setPosts((prev) => {
+        const updated = [newPost, ...prev];
+        persist(updated, cursor);
+        return updated;
+      });
+    },
+    [cursor, persist]
+  );
 
-  // 💬 Adicionar comentário (local)
-  const addComment = (postId: string) => {
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === postId ? { ...p, comments: p.comments + 1 } : p
-      )
-    );
-  };
+  const toggleLike = useCallback((postId: string) => {
+    setPosts((prev) => {
+      const updated = prev.map((p) =>
+        p.id === postId ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 } : p
+      );
+      persist(updated, cursor);
+      return updated;
+    });
+  }, [persist, cursor]);
 
-  // 🧹 Limpar feed
-  const clearFeed = () => setPosts([]);
+  const addComment = useCallback((postId: string) => {
+    setPosts((prev) => {
+      const updated = prev.map((p) => (p.id === postId ? { ...p, comments: p.comments + 1 } : p));
+      persist(updated, cursor);
+      return updated;
+    });
+  }, [persist, cursor]);
+
+  const clearFeed = () => {
+    setPosts([]);
+    setCursor(null);
+    setHasMore(true);
+    localStorage.removeItem(STORAGE_KEY);
+  };
 
   return (
-    <FeedContext.Provider
-      value={{
-        posts,
-        groupedPosts,
-        addPost,
-        toggleLike,
-        addComment,
-        clearFeed,
-      }}
-    >
+    <FeedContext.Provider value={{ posts, groupedPosts, loading, error, hasMore, fetchPosts, loadMore, addPost, toggleLike, addComment, clearFeed }}>
       {children}
     </FeedContext.Provider>
   );
 }
 
-// Hook personalizado
 export const useFeed = () => {
-  const context = useContext(FeedContext);
-  if (!context)
-    throw new Error("useFeed deve ser usado dentro de um FeedProvider");
-  return context;
+  const ctx = useContext(FeedContext);
+  if (!ctx) throw new Error("useFeed deve ser usado dentro de um FeedProvider");
+  return ctx;
 };

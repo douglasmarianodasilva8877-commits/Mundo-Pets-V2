@@ -5,10 +5,9 @@ import EmailProvider from "next-auth/providers/email";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./prisma";
 
-// ======================================================
-// 🔐 CONFIGURAÇÃO COMPLETA DO NEXTAUTH
-// ======================================================
-
+/**
+ * Configurações NextAuth (compatível App Router / Next 14)
+ */
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
 
@@ -26,42 +25,42 @@ export const authOptions: NextAuthOptions = {
 
   secret: process.env.NEXTAUTH_SECRET,
 
-  // ======================================================
-  // 🧭 SESSÕES
-  // ======================================================
+  // Sessions usando DB (compatível com adapter Prisma)
   session: {
-    strategy: "database" as const, // ✅ mantém compatibilidade
+    strategy: "database",
   },
 
   pages: {
     signIn: "/login",
   },
 
-  // ======================================================
-  // 🧩 CALLBACKS — garante que ID, EMAIL e AVATAR estejam na sessão
-  // ======================================================
   callbacks: {
     async session({ session, user }) {
       if (session.user) {
+        // garante id/email/name e fallback de avatar
         session.user.id = user.id;
         session.user.email = user.email;
         session.user.name = user.name;
-
-        // 👇 Corrigido para evitar erro TS:
-        // Verifica avatarUrl se existir no objeto user (sem quebrar o tipo)
-        const avatar =
-          (user as any).avatarUrl || user.image || null;
-
-        session.user.image = avatar;
+        session.user.image = (user as any).avatarUrl || user.image || null;
       }
-
       return session;
     },
   },
 };
 
-// ======================================================
-// 🚀 HANDLERS PADRÕES PARA O APP ROUTER (GET/POST)
-// ======================================================
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
+/**
+ * Instancia NextAuth para App Router:
+ * - NextAuth(...) retorna um "handler-like" com handlers, auth, signIn, signOut
+ * - Algumas builds/versões podem ter tipagem/shape diferente — cast para any
+ *   evita problemas de leitura de propriedades no build dev.
+ */
+const nextAuthExport = (NextAuth(authOptions) as unknown) as any;
+
+export const handlers = nextAuthExport.handlers ?? nextAuthExport;
+export const auth = nextAuthExport.auth ?? (() => Promise.resolve(null));
+export const signIn = nextAuthExport.signIn ?? (() => {});
+export const signOut = nextAuthExport.signOut ?? (() => {});
+
+// Exporta GET e POST no formato que o App Router espera
+export const GET = handlers.GET;
+export const POST = handlers.POST;

@@ -17,7 +17,7 @@ import {
 export default function SidebarDrawer() {
   const [open, setOpen] = useState(false);
 
-  // 🧭 Abre/fecha via evento global (emitido pela Navbar)
+  // 🔄 Abre/fecha via evento global (Navbar → toggle-sidebar)
   useEffect(() => {
     const handler = () => setOpen((prev) => !prev);
     window.addEventListener("toggle-sidebar", handler);
@@ -38,65 +38,81 @@ export default function SidebarDrawer() {
             exit={{ opacity: 0 }}
           />
 
-          {/* Drawer lateral */}
+          {/* Drawer */}
           <motion.aside
             key="drawer"
-            className="fixed top-0 left-0 h-full w-72 bg-white dark:bg-gray-900 shadow-xl z-50 flex flex-col"
-            initial={{ x: -320 }}
-            animate={{ x: 0 }}
-            exit={{ x: -320 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="
+              fixed top-0 left-0 h-full w-72 z-50 flex flex-col
+              bg-white/10 dark:bg-[#0A0F1C]/30
+              backdrop-blur-xl border-r border-white/10 dark:border-gray-800/30
+              shadow-[0_8px_30px_rgba(0,0,0,0.2)]
+            "
+            initial={{ x: -320, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -320, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 28 }}
           >
             {/* Cabeçalho */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between p-4 border-b border-white/10 dark:border-gray-800/40">
               <div className="flex items-center gap-2">
-                <PawPrint className="text-teal-500" size={22} />
-                <h2 className="font-semibold text-gray-800 dark:text-gray-100">
+                <PawPrint className="text-teal-400" size={22} />
+                <h2 className="font-semibold text-gray-100 text-lg">
                   Mundo Pets 🌎
                 </h2>
               </div>
-              <button
+
+              <motion.button
                 onClick={() => setOpen(false)}
-                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md"
+                whileTap={{ scale: 0.88 }}
+                className="p-1 rounded-lg hover:bg-white/10 dark:hover:bg-gray-800/40 transition"
               >
-                <X size={20} />
-              </button>
+                <X size={20} className="text-gray-300" />
+              </motion.button>
             </div>
 
-            {/* Menu principal */}
-            <nav className="flex flex-col gap-1 p-4 text-gray-700 dark:text-gray-300">
-              <Link href="/" onClick={() => setOpen(false)} className="drawer-link">
-                <Home size={18} /> Início
-              </Link>
-
-              <Link href="/profile" onClick={() => setOpen(false)} className="drawer-link">
-                <User size={18} /> Meu Perfil
-              </Link>
-
-              <Link href="/notifications" onClick={() => setOpen(false)} className="drawer-link">
-                <Bell size={18} /> Notificações
-              </Link>
-
-              <Link href="/sponsors" onClick={() => setOpen(false)} className="drawer-link">
-                <Megaphone size={18} /> Anúncios
-              </Link>
-
-              <Link href="/configuracoes" onClick={() => setOpen(false)} className="drawer-link">
-                <Settings size={18} /> Configurações
-              </Link>
+            {/* Menu */}
+            <nav className="flex flex-col gap-1 p-4 text-gray-300">
+              <DrawerLink href="/" icon={Home} label="Início" close={setOpen} />
+              <DrawerLink
+                href="/profile"
+                icon={User}
+                label="Meu Perfil"
+                close={setOpen}
+              />
+              <DrawerLink
+                href="/notifications"
+                icon={Bell}
+                label="Notificações"
+                close={setOpen}
+              />
+              <DrawerLink
+                href="/sponsors"
+                icon={Megaphone}
+                label="Anúncios"
+                close={setOpen}
+              />
+              <DrawerLink
+                href="/configuracoes"
+                icon={Settings}
+                label="Configurações"
+                close={setOpen}
+              />
             </nav>
 
             {/* Rodapé */}
-            <div className="mt-auto border-t border-gray-200 dark:border-gray-700 p-4">
-              <button
+            <div className="mt-auto border-t border-white/10 dark:border-gray-800/40 p-4">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => {
                   localStorage.clear();
                   window.location.href = "/login";
                 }}
-                className="w-full flex items-center gap-2 text-red-500 font-medium hover:text-red-600"
+                className="w-full flex items-center gap-2 text-red-400 font-medium hover:text-red-300 transition"
               >
-                <LogOut size={18} /> Sair
-              </button>
+                <LogOut size={18} />
+                Sair
+              </motion.button>
             </div>
           </motion.aside>
         </>
@@ -105,9 +121,39 @@ export default function SidebarDrawer() {
   );
 }
 
-/* === Estilos utilitários (Tailwind) ===
-   Coloque no globals.css se quiser padronizar:
-   .drawer-link {
-     @apply flex items-center gap-2 py-2 px-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition;
-   }
-*/
+/* ----------------------------
+   COMPONENTE REUTILIZÁVEL
+----------------------------- */
+
+function DrawerLink({
+  href,
+  icon: Icon,
+  label,
+  close,
+}: {
+  href: string;
+  icon: any;
+  label: string;
+  close: (v: boolean) => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.25 }}
+    >
+      <Link
+        href={href}
+        onClick={() => close(false)}
+        className="
+          flex items-center gap-3 py-2 px-3 rounded-xl
+          hover:bg-white/10 dark:hover:bg-gray-800/40
+          transition text-sm font-medium
+        "
+      >
+        <Icon size={18} className="text-teal-300" />
+        {label}
+      </Link>
+    </motion.div>
+  );
+}

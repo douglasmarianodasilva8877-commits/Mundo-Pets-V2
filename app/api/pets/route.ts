@@ -1,110 +1,96 @@
 // app/api/pets/route.ts
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
+import { createPet } from "@/lib/db/queries/mutations";
 
 /**
- * Endpoint: POST /api/pets
+ * POST /api/pets
  * Recebe FormData:
- * - name, species, breed, age, bio, tutorEmail, photo (file)
- *
- * Cria Pet vinculado ao tutor (User). Gera slug único e seta ownerEmail
- * (obrigatório pelo schema).
+ * - name, species, breed, age, bio, ownerEmail
+ * - avatar (File)
  */
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
+    const form = await req.formData();
 
-    const name = (formData.get("name") as string | null) ?? null;
-    const species = (formData.get("species") as string | null) ?? null;
-    const breed = (formData.get("breed") as string | null) ?? null;
-    const ageRaw = (formData.get("age") as string | null) ?? null;
-    const bio = (formData.get("bio") as string | null) ?? null;
-    const tutorEmail = (formData.get("tutorEmail") as string | null) ?? null;
-    const file = formData.get("photo") as File | null;
+    const name = form.get("name") as string | null;
+    const species = form.get("species") as string | null;
+    const breed = (form.get("breed") as string | null) ?? null;
+    const ageRaw = (form.get("age") as string | null) ?? null;
+    const bio = (form.get("bio") as string | null) ?? null;
+    const ownerEmail = form.get("ownerEmail") as string | null;
 
-    // Validações mínimas
-    if (!name || !species || !tutorEmail) {
+    const file = form.get("avatar") as File | null;
+
+    // validações
+    if (!name || !species || !ownerEmail) {
       return NextResponse.json(
-        { success: false, message: "Campos obrigatórios ausentes: name, species ou tutorEmail." },
+        {
+          success: false,
+          message: "Campos obrigatórios: name, species, ownerEmail",
+        },
         { status: 400 }
       );
     }
 
-    // Localiza tutor pelo email
-    const tutor = await prisma.user.findUnique({
-      where: { email: tutorEmail },
-      select: { id: true, email: true },
-    });
-
-    if (!tutor) {
-      return NextResponse.json(
-        { success: false, message: "Tutor não encontrado." },
-        { status: 404 }
-      );
-    }
-
-    // Proteção: evita criar múltiplos pets com mesmo ownerEmail (campo unique no schema)
-    const existingPetByEmail = await prisma.pet.findUnique({
-      where: { ownerEmail: tutor.email },
-    });
-
-    if (existingPetByEmail) {
-      return NextResponse.json(
-        { success: false, message: "Este tutor já possui um pet cadastrado (ownerEmail já existe)." },
-        { status: 400 }
-      );
-    }
-
-    // Upload opcional: converte para base64 (se houver). Se quiser salvar arquivo físico,
-    // ajuste aqui para escrever em disco / storage.
+    // upload para supabase
     let avatarUrl: string | null = null;
     if (file) {
+      const supabase = createClient();
+      const ext = file.name.split(".").pop() || "jpg";
+      const filePath = `pets/${Date.now()}.${ext}`;
+
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-      avatarUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from("pets")
+        .upload(filePath, buffer, {
+          contentType: file.type,
+        });
+
+      if (uploadErr) {
+        console.error("Upload error:", uploadErr);
+        return NextResponse.json(
+          { success: false, message: "Erro ao enviar arquivo." },
+          { status: 500 }
+        );
+      }
+
+      const { data: publicUrl } = supabase.storage
+        .from("pets")
+        .getPublicUrl(filePath);
+
+      avatarUrl = publicUrl.publicUrl;
     }
 
-    // Gera slug único e sanitizado
-    const makeSlug = (s: string) =>
-      `${s
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "-")
-        .replace(/[^\w-]+/g, "")
-        .replace(/-+/g, "-")}-${Date.now()}`;
+    const age = ageRaw ? parseInt(ageRaw) : null;
 
-    const slug = makeSlug(name);
-
-    // Normaliza age
-    const age = ageRaw ? parseInt(ageRaw, 10) : null;
-
-    // Cria pet no banco com todos os campos exigidos pelo schema (slug + ownerEmail)
-    const pet = await prisma.pet.create({
-      data: {
-        name,
-        species,
-        breed: breed || null,
-        age: Number.isFinite(age) ? age : null,
-        bio: bio || null,
-        avatarUrl: avatarUrl || null,
-        slug,
-        ownerId: tutor.id,
-        ownerEmail: tutor.email, // obrigatório no seu schema
-      },
+    // chama a mutation DRIZZLE
+    const pet = await createPet({
+      name,
+      species,
+      breed,
+      age,
+      avatarUrl,
+      bio,
+      ownerEmail,
     });
 
-    return NextResponse.json({ success: true, message: "Pet criado com sucesso!", pet }, { status: 201 });
-  } catch (error: any) {
-    console.error("❌ Erro ao cadastrar pet:", error);
-
-    // Prisma unique constraint error
-    if (error?.code === "P2002") {
-      return NextResponse.json(
-        { success: false, message: "Violação de unicidade (slug ou ownerEmail já existe)." },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({ success: false, message: error?.message || "Erro interno no servidor." }, { status: 500 });
+    return NextResponse.json(
+      { success: true, pet },
+      { status: 201 }
+    );
+  } catch (err: any) {
+    console.error("❌ POST /api/pets error:", err);
+    return NextResponse.json(
+      {
+        success: false,
+        message: err?.message ?? "Erro ao criar pet",
+      },
+      { status: 500 }
+    );
   }
 }

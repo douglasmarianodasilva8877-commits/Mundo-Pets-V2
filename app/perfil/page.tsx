@@ -2,13 +2,16 @@
 
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import Composer from "@/components/Composer";
+import Composer from "@/components/ComposerModal";
 import PostCard from "@/components/PostCard";
 import { useFeed } from "@/context/FeedContext";
 
 export default function PerfilPage() {
   const { posts, addPost } = useFeed();
   const [pet, setPet] = useState<any>(null);
+
+  // Estado para abrir e fechar o composer
+  const [composerOpen, setComposerOpen] = useState(false);
 
   useEffect(() => {
     const storedPet = {
@@ -36,7 +39,7 @@ export default function PerfilPage() {
       petName: pet?.name || "Pet Anônimo 🐾",
       petAvatar: pet?.avatar || "/placeholder-pet.png",
       content,
-      media: imageUrl ?? undefined, // FeedContext espera string
+      media: imageUrl ?? undefined,
       createdAt: "agora mesmo",
       likes: 0,
       comments: 0,
@@ -88,15 +91,19 @@ export default function PerfilPage() {
         </div>
       </motion.div>
 
-      {/* Criador de post */}
-      <Composer onPosted={handlePosted} pet={pet} />
+      {/* Criador de post — CORRIGIDO */}
+      <Composer
+        open={composerOpen}
+        onOpenChange={setComposerOpen}
+        onPost={handlePosted}
+        pet={pet}
+      />
 
       {/* Lista de posts */}
       <div className="space-y-5 mt-8">
         {posts
           .filter((post) => post.petName === pet.name)
           .map((post) => (
-            // ✅ Conversão segura: PostCard espera media: any[]
             <PostCard
               key={post.id}
               post={{

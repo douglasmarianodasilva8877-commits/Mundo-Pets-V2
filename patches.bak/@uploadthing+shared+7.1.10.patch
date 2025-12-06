@@ -1,0 +1,6 @@
+*** Begin Patch
+*** Update File: node_modules/@uploadthing/shared/package.json
+@@
+-    "effect": "3.17.7"
++    "effect": "3.19.8"
+*** End Patch

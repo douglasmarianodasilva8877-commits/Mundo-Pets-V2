@@ -1,12 +1,31 @@
+// app/api/auth/login/route.ts
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db/client";
+import { tutors } from "@/lib/db/schema/tutors";
+import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
     const { email, password } = await req.json();
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    if (!email || !password) {
+      return NextResponse.json(
+        { success: false, message: "E-mail e senha são obrigatórios." },
+        { status: 400 }
+      );
+    }
+
+    // Buscar tutor (usuário humano do sistema)
+    const result = await db
+      .select()
+      .from(tutors)
+      .where(eq(tutors.email, email))
+      .limit(1);
+
+    const user = result[0];
 
     if (!user) {
       return NextResponse.json(
@@ -15,7 +34,19 @@ export async function POST(req: Request) {
       );
     }
 
-    const passwordMatch = await bcrypt.compare(password, user.password || "");
+    // Validar senha
+    if (!user.passwordHash) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Conta inválida: senha não cadastrada.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.passwordHash);
+
     if (!passwordMatch) {
       return NextResponse.json(
         { success: false, message: "Senha incorreta." },
@@ -23,6 +54,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // Resposta final segura
     return NextResponse.json({
       success: true,
       message: "Login realizado com sucesso!",
@@ -30,11 +62,11 @@ export async function POST(req: Request) {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        avatarUrl: user.avatarUrl || null,
       },
     });
   } catch (err: any) {
-    console.error("❌ Erro no login:", err);
+    console.error("❌ Erro na rota de login:", err);
     return NextResponse.json(
       { success: false, message: "Erro interno no servidor." },
       { status: 500 }

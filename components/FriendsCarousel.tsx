@@ -1,21 +1,14 @@
+// components/FriendsCarousel.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-/**
- * FriendsCarousel (v4 refinado)
- * - layout horizontal intacto
- * - setas pequenas, suaves, transparentes mesmo no hover
- * - posicionadas discretamente nas laterais do carrossel
- * - swipe mobile preservado
- */
-
 const ITEMS = [
   { id: 1, type: "image", src: "/friends/pet-noiva.png", name: "Luna" },
   { id: 2, type: "video", src: "/friends/video-pets.mp4", name: "Filhote" },
-  { id: 3, type: "image", src: "/friends/gata-stilosa.jpg", name: "Mia" },
+  { id: 3, type: "image", src: "/friends/gato-stiloso.jpeg", name: "Nilo" },
   { id: 4, type: "video", src: "/friends/video-coelho.mp4", name: "Coelhinho" },
   { id: 5, type: "image", src: "/friends/cachorro-ela.jpg", name: "Bella" },
   { id: 6, type: "image", src: "/friends/thor-brincando.jpg", name: "Bob" },
@@ -24,209 +17,200 @@ const ITEMS = [
 
 export default function FriendsCarousel() {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [cardSize, setCardSize] = useState(100);
   const [showArrows, setShowArrows] = useState(false);
 
-  // Responsividade do tamanho dos cards
-  useEffect(() => {
-    const handleResize = () => {
-      const w = window.innerWidth;
-      if (w < 480) setCardSize(72);
-      else if (w < 768) setCardSize(84);
-      else if (w < 1024) setCardSize(96);
-      else setCardSize(112);
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  const CARD_WIDTH = 96;
+  const CARD_HEIGHT = 192;
+  const GAP = 10;
 
-  // Scroll suave
   const scrollBy = (dir: "left" | "right") => {
     const el = containerRef.current;
     if (!el) return;
-    const scrollAmount = cardSize * 2.5;
+
+    const shift = Math.round((CARD_WIDTH + GAP) * 2.1);
     el.scrollBy({
-      left: dir === "left" ? -scrollAmount : scrollAmount,
+      left: dir === "left" ? -shift : shift,
       behavior: "smooth",
     });
   };
 
-  // Gesto de swipe no mobile
+  // Swipe mobile
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
     let startX = 0;
-    let isDown = false;
+    let down = false;
 
-    const onTouchStart = (e: TouchEvent) => {
-      isDown = true;
+    const onStart = (e: TouchEvent) => {
+      down = true;
       startX = e.touches[0].clientX;
     };
-    const onTouchMove = (e: TouchEvent) => {
-      if (!isDown) return;
+
+    const onMove = (e: TouchEvent) => {
+      if (!down) return;
       const dx = e.touches[0].clientX - startX;
       if (Math.abs(dx) > 40) {
         scrollBy(dx > 0 ? "left" : "right");
-        isDown = false;
+        down = false;
       }
     };
-    const onTouchEnd = () => {
-      isDown = false;
-    };
 
-    el.addEventListener("touchstart", onTouchStart);
-    el.addEventListener("touchmove", onTouchMove);
-    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchstart", onStart);
+    el.addEventListener("touchmove", onMove);
 
     return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
     };
-  }, [cardSize]);
-
-  const cardWidth = cardSize;
-  const cardHeight = Math.round(cardWidth * 1.5);
+  }, []);
 
   return (
     <div
-      className="friends-carousel-wrapper relative w-full flex justify-center"
+      className="relative w-full"
       onMouseEnter={() => setShowArrows(true)}
       onMouseLeave={() => setShowArrows(false)}
-      onTouchStart={() => setShowArrows(true)}
+      style={{ paddingBottom: 4 }}
     >
-      {/* Container principal */}
+      {/* CONTAINER */}
       <div
         ref={containerRef}
-        className="friends-carousel-container"
-        role="region"
-        aria-label="Carrossel de stories"
+        className="no-scrollbar"
+        tabIndex={0}
         style={{
-          width: "100%",
-          maxWidth: "720px",
+          display: "flex",
+          gap: GAP,
           overflowX: "auto",
           overflowY: "hidden",
-          whiteSpace: "nowrap",
-          padding: "6px 8px",
-          scrollBehavior: "smooth",
+          padding: "8px 4px",
+          scrollSnapType: "x mandatory",
+          WebkitOverflowScrolling: "touch",
         }}
       >
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "flex-start",
-            gap: 12,
-          }}
-        >
-          {ITEMS.map((item) => (
+        {ITEMS.map((item) => {
+          const isVideo = item.type === "video";
+          return (
             <motion.div
               key={item.id}
-              className="friends-carousel-card"
+              whileHover={{ scale: 1.03 }}
+              transition={{ type: "spring", stiffness: 300, damping: 22 }}
               style={{
                 flex: "0 0 auto",
-                width: cardWidth,
-                height: cardHeight,
-                borderRadius: 16,
-                boxShadow: "0 6px 18px rgba(15,23,42,0.06)",
-                background: "linear-gradient(135deg,#fb923c,#ec4899)",
+                width: CARD_WIDTH,
+                height: CARD_HEIGHT,
+                scrollSnapAlign: "center",
+                borderRadius: 14,
                 overflow: "hidden",
+                background: "#fff",
+                border: "1px solid rgba(0,0,0,0.05)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
                 position: "relative",
+                cursor: "pointer",
               }}
-              whileHover={{ scale: 1.03 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
             >
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  background: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 12,
-                  overflow: "hidden",
-                }}
-              >
-                {item.type === "video" ? (
-                  <video
-                    src={item.src}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      borderRadius: "1rem",
-                    }}
-                  />
-                ) : (
-                  <img
-                    src={item.src}
-                    alt={item.name}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-                )}
-              </div>
+              {isVideo ? (
+                <video
+                  src={item.src}
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  autoPlay
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                <img
+                  src={item.src}
+                  alt={item.name}
+                  loading="lazy"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              )}
+
               <div
                 style={{
                   position: "absolute",
-                  bottom: 4,
+                  bottom: 6,
                   width: "100%",
-                  textAlign: "center",
-                  fontSize: 12,
-                  color: "#0f172a",
-                  fontWeight: 600,
-                  textShadow: "0 1px 0 rgba(255,255,255,0.6)",
+                  display: "flex",
+                  justifyContent: "center",
+                  pointerEvents: "none",
                 }}
               >
-                {item.name}
+                <span
+                  style={{
+                    background: "rgba(255,255,255,0.85)",
+                    padding: "3px 8px",
+                    borderRadius: 12,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#0f172a",
+                  }}
+                >
+                  {item.name}
+                </span>
               </div>
             </motion.div>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      {/* Setas laterais minimalistas */}
+      {/* SETAS */}
       <AnimatePresence>
         {showArrows && (
           <>
             <motion.button
-              className="absolute left-0 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/25 text-gray-900 rounded-full shadow-sm p-1 transition-all backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => scrollBy("left")}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
+              className="hidden md:flex items-center justify-center"
               style={{
-                width: 26,
-                height: 26,
-                marginLeft: 4,
+                position: "absolute",
+                left: -18,
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: "rgba(0,0,0,0.35)",
+                color: "#fff",
+                border: "none",
+                cursor: "pointer",
               }}
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={18} />
             </motion.button>
 
             <motion.button
-              className="absolute right-0 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/25 text-gray-900 rounded-full shadow-sm p-1 transition-all backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => scrollBy("right")}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
+              className="hidden md:flex items-center justify-center"
               style={{
-                width: 26,
-                height: 26,
-                marginRight: 4,
+                position: "absolute",
+                right: -18,
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: "rgba(0,0,0,0.35)",
+                color: "#fff",
+                border: "none",
+                cursor: "pointer",
               }}
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={18} />
             </motion.button>
           </>
         )}

@@ -1,25 +1,54 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import PostCard from "./PostCard";
+
+import { useState, useEffect } from "react";
 import Composer from "./Composer";
+import PostCard from "./PostCard";
+
+export interface Post {
+  id: string;
+  petName: string;
+  petAvatar: string;
+  content: string;
+  media: string[];
+  createdAt: string;
+  likes: number;
+  comments: number;
+}
 
 export default function ClientFeed() {
-  const [posts, setPosts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState<Post[]>([]);
 
   async function load() {
     setLoading(true);
+
     const res = await fetch("/api/posts");
-    if (res.ok) setPosts(await res.json());
+    const data = await res.json();
+
+    const arr = Array.isArray(data) ? data : data.posts ?? [];
+
+    const normalizedPosts: Post[] = arr.map((p: any) => ({
+      ...p,
+      media: Array.isArray(p.media) ? p.media : p.media ? [p.media] : [],
+    }));
+
+    setPosts(normalizedPosts);
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   return (
     <>
-      <Composer onPosted={load} />
-      {loading ? <div>Carregando...</div> : posts.map(p => <PostCard key={p.id} post={p} />)}
+      <Composer onPost={load} />
+
+      {loading ? (
+        <div>Carregando...</div>
+      ) : (
+        posts.map((p) => <PostCard key={p.id} post={p} />)
+      )}
     </>
   );
 }
